@@ -15,8 +15,6 @@ When you click the **Knit** button a document will be generated that includes bo
 
 ```{r}
 # get and set working directory
-getwd()
-setwd("/Users/benjaminwasserman/Desktop/Chapman University/Senior/MGSC310/Final/MGSC310 Final")
 
 # read in files
 tourney_games <- read.csv("ConferenceTourneyGames.csv")
