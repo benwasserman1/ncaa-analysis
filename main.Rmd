@@ -1,0 +1,40 @@
+---
+title: "Main R Markdown Document For NCAA Basketball Analysis"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r}
+# get and set working directory
+getwd()
+setwd("/Users/benjaminwasserman/Desktop/Chapman University/Senior/MGSC310/Final/MGSC310 Final")
+
+# read in files
+tourney_games <- read.csv("ConferenceTourneyGames.csv")
+tourney_compact_results <- read.csv("NCAATourneyCompactResults.csv")
+regular_season_compact_results <- read.csv("RegularSeasonCompactResults.csv")
+seasons <- read.csv("Seasons.csv")
+team_coaches <- read.csv("TeamCoaches.csv")
+teams <- read.csv("Teams.csv")
+team_conferences <- read.csv("TeamConferences.csv")
+tourney_seeds <- read.csv("NCAATourneySeeds.csv")
+tourney_detailed_result <- read.csv("NCAATourneyDetailedResults.csv")
+regular_season_detailed_result <- read.csv("RegularSeasonDetailedResults.csv")
+```
+
+With this dataset we are trying to predict tournament winners. We will test on various years to try and obtain the most accurate results.
+
+```{r}
+# summary statistics
+View(tourney_detailed_result)
+
+```
