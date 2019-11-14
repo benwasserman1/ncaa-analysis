@@ -5,13 +5,9 @@ output: html_document
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+library('tidyverse')
+library('magrittr')
 ```
-
-## R Markdown
-
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
-
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
 
 ```{r}
 # get and set working directory
@@ -32,7 +28,41 @@ regular_season_detailed_result <- read.csv("RegularSeasonDetailedResults.csv")
 With this dataset we are trying to predict tournament winners. We will test on various years to try and obtain the most accurate results.
 
 ```{r}
+# cleaning
+
+# replace team id's with team names
+tourney_detailed_result[["WTeamID"]] <- teams[ match(tourney_detailed_result[['WTeamID']], teams[['TeamID']] ), 'TeamName']
+tourney_detailed_result[["LTeamID"]] <- teams[ match(tourney_detailed_result[['LTeamID']], teams[['TeamID']] ), 'TeamName']
+
+# factoring 
+tourney_detailed_result %<>% mutate(Season = factor(Season),
+                                    DayNum = factor(DayNum),
+                                    WTeamID = factor(WTeamID),
+                                    LTeamID = factor(LTeamID),
+                                    NumOT = factor(NumOT))
+
+# renaming
+tourney_detailed_result %<>% rename(WTeamName = WTeamID,
+                                    LTeamName = LTeamID)
+
+
+
+```
+
+
+```{r}
 # summary statistics
-View(tourney_detailed_result)
+summary(tourney_detailed_result)
+
+# wins per team
+tourney_wins_per_team <- tourney_detailed_result %>% group_by(WTeamName) %>% 
+  summarize(num_wins = n()) %>%
+  arrange(desc(num_wins))
+head(tourney_winner)
+
+# wins per team per season
+wins_per_team_per_season <- tourney_detailed_result %>% group_by(Season) %>% 
+  count(WTeamName)
+head(wins_per_team_per_season)
 
 ```
