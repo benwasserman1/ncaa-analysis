@@ -120,11 +120,27 @@ summary(tourney_detailed_result)
 tourney_wins_per_team <- tourney_detailed_result %>% group_by(WTeamName) %>% 
   summarize(num_wins = n()) %>%
   arrange(desc(num_wins))
-head(tourney_winner)
+head(tourney_wins_per_team)
+summary(tourney_wins_per_team)
 
 # wins per team per season
 wins_per_team_per_season <- tourney_detailed_result %>% group_by(Season) %>% 
   count(WTeamName)
 head(wins_per_team_per_season)
+
+seed_details <- tourney_detailed_result %>% group_by(WTeamSeed) %>%
+  summarize(avg_points_per_seed = mean(WScore),
+            max_points_per_seed = max(WScore),
+            min_points_per_seed = min(WScore))
+seed_details
+
+conf_details <- tourney_detailed_result %>% group_by(WTeamConf) %>%
+  summarize(avg_points_per_conf = mean(WScore),
+            max_points)
+tourney_winner
+
+#avgs per season per team, conferenc, other stats
+R6CH
+
 
 ```
