@@ -23,12 +23,72 @@ team_conferences <- read.csv("TeamConferences.csv")
 tourney_seeds <- read.csv("NCAATourneySeeds.csv")
 tourney_detailed_result <- read.csv("NCAATourneyDetailedResults.csv")
 regular_season_detailed_result <- read.csv("RegularSeasonDetailedResults.csv")
+tourney_seed_round_slots <- read.csv("NCAATourneySeedRoundSlots.csv")
+tourney_slots <- read.csv("NCAATourneySlots.csv")
 ```
 
 With this dataset we are trying to predict tournament winners. We will test on various years to try and obtain the most accurate results.
 
 ```{r}
 # cleaning
+tourney_slots <- tourney_slots %>% rename(GameSlot = Slot)
+
+# merge rounds, teams, and seeds
+rounds_df <- left_join(x = tourney_slots,
+                       y = tourney_seed_round_slots,
+                       by = "GameSlot")
+
+# one unique game slot 
+rounds_df <- distinct(rounds_df, GameSlot, Season)
+
+rounds_df <- left_join(rounds_df, 
+                       tourney_slots, 
+                       by = c("GameSlot", "Season"))
+
+View(rounds_df)
+
+# team conferences to tourney results
+team_conferences <- team_conferences %>% rename(WTeamID = TeamID)
+
+tourney_detailed_result <- left_join(x = tourney_detailed_result,
+                                     y = team_conferences, 
+                                     by = c("WTeamID", "Season"))
+
+team_conferences <- team_conferences %>% rename(LTeamID = WTeamID)
+
+tourney_detailed_result <- left_join(x = tourney_detailed_result,
+                                     y = team_conferences, 
+                                     by = c("LTeamID", "Season"))
+
+tourney_detailed_result <- tourney_detailed_result %>% rename(
+  WTeamConf = ConfAbbrev.x,
+  LTeamConf = ConfAbbrev.y 
+)
+
+View(tourney_detailed_result)
+
+# get rid of all seeding prior to 2003
+tourney_seeds <- tourney_seeds %>% mutate(as.numeric(Season) > 2002)
+View(tourney_seeds)
+
+# add seeds to tourney results
+tourney_seeds <- subset(tourney_seeds, Season > 2002)
+tourney_seeds <- tourney_seeds %>% rename(WTeamID = TeamID)
+
+tourney_detailed_result <-left_join(x = tourney_detailed_result,
+                                    y = tourney_seeds,
+                                    by = c("WTeamID", "Season"))
+
+tourney_seeds <- tourney_seeds %>% rename(LTeamID = WTeamID)
+
+tourney_detailed_result <-left_join(x = tourney_detailed_result,
+                                    y = tourney_seeds,
+                                    by = c("LTeamID", "Season"))
+
+tourney_detailed_result <- tourney_detailed_result %>% rename(
+  WTeamSeed = Seed.x,
+  LTeamSeed = Seed.y
+)
 
 # replace team id's with team names
 tourney_detailed_result[["WTeamID"]] <- teams[ match(tourney_detailed_result[['WTeamID']], teams[['TeamID']] ), 'TeamName']
@@ -44,6 +104,8 @@ tourney_detailed_result %<>% mutate(Season = factor(Season),
 # renaming
 tourney_detailed_result %<>% rename(WTeamName = WTeamID,
                                     LTeamName = LTeamID)
+
+View(tourney_detailed_result)
 
 
 
