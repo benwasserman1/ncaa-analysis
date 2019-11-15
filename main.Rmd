@@ -1,6 +1,9 @@
 ---
 title: "Main R Markdown Document For NCAA Basketball Analysis"
-output: html_document
+author: "Ben Wasserman and Connor Kennedy"
+output:
+  pdf_document: default
+  html_document: default
 ---
 
 ```{r setup, include=FALSE}
@@ -8,6 +11,8 @@ knitr::opts_chunk$set(echo = TRUE)
 library('tidyverse')
 library('magrittr')
 ```
+
+In this document we clean the data, join the day, add some columns, create factors, and provide some summary statistics around the data. We are  also interested in adding TV ratings and/or revenue to see how upsets and seasons affect TV ratings and revenue generated
 
 ```{r}
 # get and set working directory
@@ -23,22 +28,18 @@ team_conferences <- read.csv("TeamConferences.csv")
 tourney_seeds <- read.csv("NCAATourneySeeds.csv")
 tourney_seeds_round_slots <- read.csv("NCAATourneySeedRoundSlots.csv")
 tourney_detailed_result <- read.csv("NCAATourneyDetailedResults.csv")
+tourney_slots <- read.csv("NCAATourneySlots.csv")
 regular_season_detailed_result <- read.csv("RegularSeasonDetailedResults.csv")
 ```
 
-With this dataset we are trying to predict tournament winners. We will test on various years to try and obtain the most accurate results.
 
 ```{r}
-# cleaning
-
-# add
-
 ########### BELOW ARE A VARIETY OF DATA CLEANING AND FEATURE ENGINEERING ################
 tourney_slots <- tourney_slots %>% rename(GameSlot = Slot)
 
 # merge rounds, teams, and seeds
 rounds_df <- left_join(x = tourney_slots,
-                       y = tourney_seed_round_slots,
+                       y = tourney_seeds_round_slots,
                        by = "GameSlot")
 
 # one unique game slot 
@@ -172,37 +173,54 @@ winner_seed_details
 # plots to reveal interesting patterns
 
 library('ggthemes')
-View(tourney_)
 
-# something by season
-p <- ggplot(
-  mpg,
-  aes(x = displ, y = hwy)) + 
-  geom_point(aes(color = factor(cyl))) + 
-  labs(x = "Engine Displacement (Liters)",
-       y = "Miles Per Gallon (Hwy)",
-       title = "Engine Size and MPG") +
-  facet_wrap(~class, scales = "free") + 
-  geom_smooth() + 
+tourney_detailed_result <- tourney_detailed_result %>% mutate(WTeamConfFactor = fct_lump(WTeamConf, 10))
+
+# top ten conferences frequency of wins
+p4 <- ggplot(tourney_detailed_result, aes(x=WTeamConfFactor)) +
+  geom_bar() +
+  labs(x = "Conference",
+       title = "Frequency of Wins By Conference")
+
+p4
+
+# field goals made vs score difference
+p1 <- ggplot(
+  tourney_detailed_result,
+  aes(x = WFGM, y = scoreDiff)) + 
+  geom_point() +
+  labs(x = "Field Goals Made",
+       y = "Score Difference",
+       title = "Score difference and field goals made") +
   theme_economist()
-
-
-# something else by season
-
+p1
 
 # density plot by conference
 library(ggridges)
-p <- ggplot(tourney_detailed_result, aes(x = scoreDiff, y = WTeamConf, fill = WTeamConf)) +
+p2 <- ggplot(tourney_detailed_result, aes(x = scoreDiff, y = WTeamConfFactor, fill = WTeamConfFactor)) +
   geom_density_ridges() + 
   labs(x = "Score Difference",
        y = "Winning Team Conference")
 
-p
+p2
 
-# a_sun conference has a very bimodal density plot so we're looking at teams within
-p2 <- ggplot(tourney_detailed_result, aes(x = , y = , fill = )) + 
-  geom_density_ridges() + 
-  labs(x = "",
-       y = "")
+# scatter plot of winning scores and conferences
+p3 <- ggplot(tourney_detailed_result, aes(x = WScore, y = WTeamConfFactor)) +
+  geom_point() + 
+  labs(x = "Winning Score",
+       y = "Winning Team Conference")
+  
+p3
+
+# correlation plot of a variety of game stats
+library(corrplot)
+cormat <- cor(tourney_detailed_result %>% select(LScore, WScore,
+                                                    WFGA, LFGA,
+                                                 WAst, LAst, WFTM, LFTM, 
+                                                    WFGM, LFGM) %>% drop_na())
+corrplot(cormat, method = "number", type="lower")
+
+
 
 ```
+
