@@ -21,7 +21,7 @@ team_coaches <- read.csv("TeamCoaches.csv")
 teams <- read.csv("Teams.csv")
 team_conferences <- read.csv("TeamConferences.csv")
 tourney_seeds <- read.csv("NCAATourneySeeds.csv")
-tourney_seeds_round_slots <- read.csv("NCAATourneySeedRoundSlots")
+tourney_seeds_round_slots <- read.csv("NCAATourneySeedRoundSlots.csv")
 tourney_detailed_result <- read.csv("NCAATourneyDetailedResults.csv")
 regular_season_detailed_result <- read.csv("RegularSeasonDetailedResults.csv")
 ```
@@ -32,7 +32,7 @@ With this dataset we are trying to predict tournament winners. We will test on v
 # cleaning
 
 # add
-View(tourney_compact_results)
+
 ########### BELOW ARE A VARIETY OF DATA CLEANING AND FEATURE ENGINEERING ################
 tourney_slots <- tourney_slots %>% rename(GameSlot = Slot)
 
@@ -106,11 +106,8 @@ tourney_detailed_result %<>% mutate(Season = factor(Season),
 tourney_detailed_result %<>% rename(WTeamName = WTeamID,
                                     LTeamName = LTeamID)
 
-<<<<<<< HEAD
-=======
 # add score difference
 tourney_detailed_result <- tourney_detailed_result %>% mutate(scoreDiff = WScore - LScore)
->>>>>>> ben-branch
 
 
 ```
@@ -125,32 +122,47 @@ tourney_wins_per_team <- tourney_detailed_result %>% group_by(WTeamName) %>%
   summarize(num_wins = n()) %>%
   arrange(desc(num_wins))
 head(tourney_wins_per_team)
-<<<<<<< HEAD
-=======
-summary(tourney_wins_per_team)
->>>>>>> ben-branch
 
 # wins per team per season
 wins_per_team_per_season <- tourney_detailed_result %>% group_by(Season) %>% 
   count(WTeamName)
 head(wins_per_team_per_season)
 
-<<<<<<< HEAD
-season_winner <- tourney_detailed_result %>% group_by()
-=======
+# summary details of score by seed
 seed_details <- tourney_detailed_result %>% group_by(WTeamSeed) %>%
   summarize(avg_points_per_seed = mean(WScore),
             max_points_per_seed = max(WScore),
             min_points_per_seed = min(WScore))
 seed_details
 
+# summary details of score by conference
 conf_details <- tourney_detailed_result %>% group_by(WTeamConf) %>%
   summarize(avg_points_per_conf = mean(WScore),
-            max_points)
-tourney_winner
+            max_points_per_conf = max(WScore),
+            min_points_per_conf = min(WScore))
+conf_details
 
-#avgs per season per team, conferenc, other stats
-R6CH
+# summary details of three points by season
+three_pt_details <- tourney_detailed_result %>% group_by(Season) %>%
+  summarize(avg_three_pts = mean(WFGM3),
+            max_three_pts = max(WFGM3),
+            min_three_pts = min(WFGM3))
+three_pt_details
+
+# summay details of field goals by season
+field_goals_details <- tourney_detailed_result %>% group_by(Season) %>%
+  summarize(avg_field_goals = mean(WFGM),
+            max_field_goals = max(WFGM),
+            min_field_foals = min(WFGM))
+field_goals_details
+
+
+# summary details of score by winning
+winner_seed_details <- tourney_detailed_result %>% group_by(Season, WTeamSeed) %>%
+  summarize(avg_points_per_WTeamSeed = mean(WScore),
+            max_points_per_WTeamSeed = max(WScore),
+            min_points_per_WTeamSeed = min(WScore))
+winner_seed_details
 
 
 ```
@@ -192,6 +204,5 @@ p2 <- ggplot(tourney_detailed_result, aes(x = , y = , fill = )) +
   geom_density_ridges() + 
   labs(x = "",
        y = "")
->>>>>>> ben-branch
 
 ```
