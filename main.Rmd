@@ -32,6 +32,64 @@ With this dataset we are trying to predict tournament winners. We will test on v
 # cleaning
 
 # add
+View(tourney_compact_results)
+########### BELOW ARE A VARIETY OF DATA CLEANING AND FEATURE ENGINEERING ################
+tourney_slots <- tourney_slots %>% rename(GameSlot = Slot)
+
+# merge rounds, teams, and seeds
+rounds_df <- left_join(x = tourney_slots,
+                       y = tourney_seed_round_slots,
+                       by = "GameSlot")
+
+# one unique game slot 
+rounds_df <- distinct(rounds_df, GameSlot, Season)
+
+# join by slot and season
+rounds_df <- left_join(rounds_df, 
+                       tourney_slots, 
+                       by = c("GameSlot", "Season"))
+
+# team conferences to tourney results
+team_conferences <- team_conferences %>% rename(WTeamID = TeamID)
+
+# join with conferences
+tourney_detailed_result <- left_join(x = tourney_detailed_result,
+                                     y = team_conferences, 
+                                     by = c("WTeamID", "Season"))
+
+team_conferences <- team_conferences %>% rename(LTeamID = WTeamID)
+
+tourney_detailed_result <- left_join(x = tourney_detailed_result,
+                                     y = team_conferences, 
+                                     by = c("LTeamID", "Season"))
+
+tourney_detailed_result <- tourney_detailed_result %>% rename(
+  WTeamConf = ConfAbbrev.x,
+  LTeamConf = ConfAbbrev.y 
+)
+
+# get rid of all seeding prior to 2003
+tourney_seeds <- tourney_seeds %>% mutate(as.numeric(Season) > 2002)
+View(tourney_seeds)
+
+# join with seeds
+tourney_seeds <- subset(tourney_seeds, Season > 2002)
+tourney_seeds <- tourney_seeds %>% rename(WTeamID = TeamID)
+
+tourney_detailed_result <-left_join(x = tourney_detailed_result,
+                                    y = tourney_seeds,
+                                    by = c("WTeamID", "Season"))
+
+tourney_seeds <- tourney_seeds %>% rename(LTeamID = WTeamID)
+
+tourney_detailed_result <-left_join(x = tourney_detailed_result,
+                                    y = tourney_seeds,
+                                    by = c("LTeamID", "Season"))
+
+tourney_detailed_result <- tourney_detailed_result %>% rename(
+  WTeamSeed = Seed.x,
+  LTeamSeed = Seed.y
+)
 
 # replace team id's with team names
 tourney_detailed_result[["WTeamID"]] <- teams[ match(tourney_detailed_result[['WTeamID']], teams[['TeamID']] ), 'TeamName']
@@ -48,6 +106,11 @@ tourney_detailed_result %<>% mutate(Season = factor(Season),
 tourney_detailed_result %<>% rename(WTeamName = WTeamID,
                                     LTeamName = LTeamID)
 
+<<<<<<< HEAD
+=======
+# add score difference
+tourney_detailed_result <- tourney_detailed_result %>% mutate(scoreDiff = WScore - LScore)
+>>>>>>> ben-branch
 
 
 ```
@@ -62,12 +125,73 @@ tourney_wins_per_team <- tourney_detailed_result %>% group_by(WTeamName) %>%
   summarize(num_wins = n()) %>%
   arrange(desc(num_wins))
 head(tourney_wins_per_team)
+<<<<<<< HEAD
+=======
+summary(tourney_wins_per_team)
+>>>>>>> ben-branch
 
 # wins per team per season
 wins_per_team_per_season <- tourney_detailed_result %>% group_by(Season) %>% 
   count(WTeamName)
 head(wins_per_team_per_season)
 
+<<<<<<< HEAD
 season_winner <- tourney_detailed_result %>% group_by()
+=======
+seed_details <- tourney_detailed_result %>% group_by(WTeamSeed) %>%
+  summarize(avg_points_per_seed = mean(WScore),
+            max_points_per_seed = max(WScore),
+            min_points_per_seed = min(WScore))
+seed_details
+
+conf_details <- tourney_detailed_result %>% group_by(WTeamConf) %>%
+  summarize(avg_points_per_conf = mean(WScore),
+            max_points)
+tourney_winner
+
+#avgs per season per team, conferenc, other stats
+R6CH
+
+
+```
+
+
+```{r}
+# plots to reveal interesting patterns
+
+library('ggthemes')
+View(tourney_)
+
+# something by season
+p <- ggplot(
+  mpg,
+  aes(x = displ, y = hwy)) + 
+  geom_point(aes(color = factor(cyl))) + 
+  labs(x = "Engine Displacement (Liters)",
+       y = "Miles Per Gallon (Hwy)",
+       title = "Engine Size and MPG") +
+  facet_wrap(~class, scales = "free") + 
+  geom_smooth() + 
+  theme_economist()
+
+
+# something else by season
+
+
+# density plot by conference
+library(ggridges)
+p <- ggplot(tourney_detailed_result, aes(x = scoreDiff, y = WTeamConf, fill = WTeamConf)) +
+  geom_density_ridges() + 
+  labs(x = "Score Difference",
+       y = "Winning Team Conference")
+
+p
+
+# a_sun conference has a very bimodal density plot so we're looking at teams within
+p2 <- ggplot(tourney_detailed_result, aes(x = , y = , fill = )) + 
+  geom_density_ridges() + 
+  labs(x = "",
+       y = "")
+>>>>>>> ben-branch
 
 ```
