@@ -30,6 +30,7 @@ tourney_seeds_round_slots <- read.csv("NCAATourneySeedRoundSlots.csv")
 tourney_detailed_result <- read.csv("NCAATourneyDetailedResults.csv")
 tourney_slots <- read.csv("NCAATourneySlots.csv")
 regular_season_detailed_result <- read.csv("RegularSeasonDetailedResults.csv")
+rating_round_viewers <- read.csv("rating_round_viewers.csv")
 ```
 
 
@@ -37,13 +38,18 @@ regular_season_detailed_result <- read.csv("RegularSeasonDetailedResults.csv")
 ########### BELOW ARE A VARIETY OF DATA CLEANING AND FEATURE ENGINEERING ################
 tourney_slots <- tourney_slots %>% rename(GameSlot = Slot)
 
+View(rounds_df)
+
 # merge rounds, teams, and seeds
 rounds_df <- left_join(x = tourney_slots,
                        y = tourney_seeds_round_slots,
                        by = "GameSlot")
 
-# one unique game slot 
-rounds_df <- distinct(rounds_df, GameSlot, Season)
+# reorder by column name
+rounds_df <- rounds_df[c("Season", "GameSlot", "WeakSeed", "GameRound")]
+
+# get rid of duplicates
+rounds_df <- rounds_df[!duplicated(rounds_df[1:4]),]
 
 # join by slot and season
 rounds_df <- left_join(rounds_df, 
@@ -69,11 +75,7 @@ tourney_detailed_result <- tourney_detailed_result %>% rename(
   LTeamConf = ConfAbbrev.y 
 )
 
-# get rid of all seeding prior to 2003
-tourney_seeds <- tourney_seeds %>% mutate(as.numeric(Season) > 2002)
-View(tourney_seeds)
-
-# join with seeds
+# get rid of seeds prior to 2002 for consistency
 tourney_seeds <- subset(tourney_seeds, Season > 2002)
 tourney_seeds <- tourney_seeds %>% rename(WTeamID = TeamID)
 
@@ -92,16 +94,10 @@ tourney_detailed_result <- tourney_detailed_result %>% rename(
   LTeamSeed = Seed.y
 )
 
+
 # replace team id's with team names
 tourney_detailed_result[["WTeamID"]] <- teams[ match(tourney_detailed_result[['WTeamID']], teams[['TeamID']] ), 'TeamName']
 tourney_detailed_result[["LTeamID"]] <- teams[ match(tourney_detailed_result[['LTeamID']], teams[['TeamID']] ), 'TeamName']
-
-# factoring 
-tourney_detailed_result %<>% mutate(Season = factor(Season),
-                                    DayNum = factor(DayNum),
-                                    WTeamID = factor(WTeamID),
-                                    LTeamID = factor(LTeamID),
-                                    NumOT = factor(NumOT))
 
 # renaming
 tourney_detailed_result %<>% rename(WTeamName = WTeamID,
@@ -110,6 +106,35 @@ tourney_detailed_result %<>% rename(WTeamName = WTeamID,
 # add score difference
 tourney_detailed_result <- tourney_detailed_result %>% mutate(scoreDiff = WScore - LScore)
 
+
+# add rounds to tourney_detailed_results
+tourney_detailed_result <- tourney_detailed_result %>% mutate(Round = ifelse(
+  DayNum %in% 134:135, 0,
+  ifelse(DayNum %in% 136:137, 1,
+         ifelse(DayNum %in% 138:139, 2,
+                ifelse(DayNum %in% 143:144, 3,
+                       ifelse(DayNum %in% 145:146, 4,
+                              ifelse(DayNum == 152, 5,
+                                     ifelse(DayNum == 154, 6, 7))))))
+))
+
+View(tourney_detailed_result)
+
+View(rating_round_viewers)
+
+# add TV ratings and viewers for championship games
+tourney_detailed_result <-left_join(x = tourney_detailed_result,
+                                    y = rating_round_viewers,
+                                    by = c("Season", "Round"))
+
+# factoring 
+tourney_detailed_result %<>% mutate(Season = factor(Season),
+                                    DayNum = factor(DayNum),
+                                    WTeamName = factor(WTeamName),
+                                    LTeamName = factor(LTeamName),
+                                    NumOT = factor(NumOT))
+
+View(tourney_detailed_result)
 
 ```
 
@@ -224,3 +249,10 @@ corrplot(cormat, method = "number", type="lower")
 
 ```
 
+
+```{r}
+# intial models we may want to fit
+# we should be looking to test against the regular season data and predict into the tournament data for each year - try and get win probabilities
+
+
+```
