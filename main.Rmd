@@ -145,6 +145,8 @@ View(tourney_detailed_result)
 View(rating_round_viewers)
 
 # add TV ratings and viewers for championship games
+
+rating_round_viewers %<>% rename(Round = ï..Round)
 tourney_detailed_result <-left_join(x = tourney_detailed_result,
                                     y = rating_round_viewers,
                                     by = c("Season", "Round"))
@@ -315,7 +317,10 @@ corrplot(cormat, method = "number", type="lower")
 # intial models we may want to fit
 # we should be looking to test against the regular season data and predict into the tournament data for each year - try and get win probabilities
 
-# we could basically train a model for each season. Test it against other seasons? How do we want to do this? We're probably looking to determine win probabilities right?
 
+# making winning binomial
+tourney_detailed_result <- tourney_detailed_result %>% mutate(WBinom = rep(1))
+mod1 <- glm(WBinom ~ LTeamName, 
+            data = tourney_detailed_result)
 
 ```
