@@ -320,7 +320,28 @@ regular_detailed_result <- regular_detailed_result %>% mutate(LTeamConfFactor =
 
 - Do K fold cross validation by splitting into regular season and tournament data and then training and testing on each
 ```{r}
+# season 2002 -> 2018
+folds <- 2018 - 2003
+curr_year <- 2003
 
+preds_DF <- data.frame (
+  folds = folds,
+  preds_KFC = NA
+)
+
+# you're going to want to get this on a season by season basis
+for (i in 1:folds) {
+  training_df <- subset(regular_detailed_result, Season == curr_year)
+  curr_year <- curr_year + 1
+  mod <- glm(lower_team_won ~ WTeamConfFactor + LTeamConfFactor + DAst + 
+               DDR + DOR + DTO + DFGM3 + DFTM + DStl,
+               data = training_df,
+               family = binomial)
+  
+  preds <- predict(mod, newdata = training_df, type="response")
+  
+  preds_DF[preds_DF$folds == i, "preds_KFC"] <- preds
+}
 
 
 ```
