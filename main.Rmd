@@ -17,6 +17,9 @@ In this document we clean the data, join the day, add some columns, create facto
 ```{r}
 # get and set working directory
 
+# remove environment variables
+rm(list = ls())
+
 # read in files
 tourney_games <- read.csv("ConferenceTourneyGames.csv")
 tourney_compact_results <- read.csv("NCAATourneyCompactResults.csv")
@@ -93,35 +96,87 @@ tourney_detailed_result <- tourney_detailed_result %>% rename(
   LTeamSeed = Seed.y
 )
 
+# make all the seeds only numeric
+tourney_detailed_result$WTeamSeed <- as.integer(gsub('[a-zA-Z]', '',
+                                                     tourney_detailed_result$WTeamSeed))
+tourney_detailed_result$LTeamSeed <- as.integer(gsub('[a-zA-Z]', '',
+                                                     tourney_detailed_result$LTeamSeed))
+
+
+View(tourney_detailed_result)
 
 # now I'm going to look to make a model for lower team wins and higher team wins
 tourney_detailed_result <- tourney_detailed_result %>% mutate(
   lower_team = pmin(WTeamID, LTeamID),
   higher_team = pmax(WTeamID, LTeamID),
-  lower_team_won = ifelse(WTeamID == lower_team, 1, 0)
+  higher_team_won = ifelse(higher_team == WTeamID, 1, 0),
+  HTSeed = ifelse(higher_team == WTeamID, WTeamSeed, LTeamSeed),
+  LTSeed = ifelse(lower_team == WTeamID, WTeamSeed, LTeamSeed),
+  HTScore = ifelse(higher_team == WTeamID, WScore, LScore),
+  LTScore = ifelse(lower_team == WTeamID, WScore, LScore),
+  HTConf = ifelse(higher_team == WTeamID, as.character(WTeamConf), as.character(LTeamConf)),
+  LTConf = ifelse(lower_team == WTeamID, as.character(WTeamConf), as.character(LTeamConf)),
+  HTFGM = ifelse(higher_team == WTeamID, WFGM, LFGM),
+  LTFGM = ifelse(lower_team == WTeamID, WFGM, LFGM),
+  HTFGA = ifelse(higher_team == WTeamID, WFGA, LFGA),
+  LTFGA = ifelse(lower_team == WTeamID, WFGA, LFGA),
+  HTFGM3 = ifelse(higher_team == WTeamID, WFGM3, LFGM3),
+  LTFGM3 = ifelse(lower_team == WTeamID, WFGM3, LFGM3),
+  HTFGA3 = ifelse(higher_team == WTeamID, WFGA3, LFGA3),
+  LTFGA3 = ifelse(lower_team == WTeamID, WFGA3, LFGA3),
+  HTFTM = ifelse(higher_team == WTeamID, WFTM, LFTM),
+  LTFTM = ifelse(lower_team == WTeamID, WFTM, LFTM),
+  HTFTA = ifelse(higher_team == WTeamID, WFTA, LFTA),
+  LTFTA = ifelse(lower_team == WTeamID, WFTA, LFTA),
+  HTOR = ifelse(higher_team == WTeamID, WOR, LOR),
+  LTOR = ifelse(lower_team == WTeamID, WOR, LOR),
+  HTDR = ifelse(higher_team == WTeamID, WDR, LDR),
+  LTDR = ifelse(lower_team == WTeamID, WDR, LDR),
+  HTAst = ifelse(higher_team == WTeamID, WAst, LAst),
+  LTAst = ifelse(lower_team == WTeamID, WAst, LAst),
+  HTTO = ifelse(higher_team == WTeamID, WTO, LTO),
+  LTTO = ifelse(lower_team == WTeamID, WTO, LTO),
+  HTStl = ifelse(higher_team == WTeamID, WStl, LStl),
+  LTStl = ifelse(lower_team == WTeamID, WStl, LStl),
+  HTBlk = ifelse(higher_team == WTeamID, WBlk, LBlk),
+  LTBlk = ifelse(lower_team == WTeamID, WBlk, LBlk),
+  HTPF = ifelse(higher_team == WTeamID, WPF, LPF),
+  LTPF = ifelse(lower_team == WTeamID, WPF, LPF)
 )
 
+# Create new variables that account for the randomness of seed assignment
+names(tourney_detailed_result)
+
+tourney_detailed_result <- tourney_detailed_result %>% select(
+  Season, DayNum, NumOT, lower_team, higher_team, higher_team_won,
+  HTSeed, LTSeed, HTScore, LTScore, HTConf, LTConf, HTFGM, 
+  LTFGM, HTFGA, LTFGA, HTFGM3, LTFGM3, HTFGA3, LTFGA3, HTFTM, 
+  LTFTM, HTFTA, LTFTA, HTOR, LTOR, HTDR, LTDR, HTAst, LTAst, HTTO,
+  LTTO, HTStl, LTStl, HTBlk, LTBlk, HTPF, LTPF
+)
+
+dim(tourney_detailed_result)
 
 # add team names
 teams <- teams %>% select(TeamName, TeamID)
-teams <- teams %>% rename(WTeamID = TeamID)
+teams <- teams %>% rename(lower_team = TeamID)
 tourney_detailed_result <-left_join(x = tourney_detailed_result,
                                     y = teams,
-                                    by = "WTeamID")
+                                    by = "lower_team")
 
-View(tourney_detailed_result)
 
-teams <- teams %>% rename(LTeamID = WTeamID)
+teams <- teams %>% rename(higher_team = lower_team)
 tourney_detailed_result <- left_join(x = tourney_detailed_result,
                                      y = teams, 
-                                     by = "LTeamID")
+                                     by = "higher_team")
+
 
 # renaming
-tourney_detailed_result %<>% rename(WTeamName = TeamName.x,
-                                    LTeamName = TeamName.y)
+tourney_detailed_result %<>% rename(LowerTeamName = TeamName.x,
+                                    HigherTeamName = TeamName.y)
 
 # add score difference
-tourney_detailed_result <- tourney_detailed_result %>% mutate(scoreDiff = WScore - LScore)
+tourney_detailed_result <- tourney_detailed_result %>% mutate(scoreDiff = HTScore - LTScore)
 
 
 # add rounds to tourney_detailed_results
@@ -139,63 +194,74 @@ tourney_detailed_result <- tourney_detailed_result %>% mutate(Round = ifelse(
 # factoring 
 tourney_detailed_result %<>% mutate(Season = factor(Season),
                                     DayNum = factor(DayNum),
-                                    WTeamName = factor(WTeamName),
-                                    LTeamName = factor(LTeamName),
+                                    HigherTeamName = factor(HigherTeamName),
+                                    LowerTeamName = factor(LowerTeamName),
                                     NumOT = factor(NumOT))
-
-# make all the seeds only numeric
-tourney_detailed_result$WTeamSeed <- as.integer(gsub('[a-zA-Z]', '',
-                                                     tourney_detailed_result$WTeamSeed))
-tourney_detailed_result$LTeamSeed <- as.integer(gsub('[a-zA-Z]', '',
-                                                     tourney_detailed_result$LTeamSeed))
 
 
 # transition all wins and losses into deltas
-tourney_detailed_result <- tourney_detailed_result %>% mutate(
-  DFTM = WFTM - LFTM,
-  DStl = WStl - LStl,
-  DFGA = WFGA - LFGA,
-  DFGA3 = WFGA3 - LFGA3,
-  DFGM3 = WFGM3 - LFGM3,
-  DFTM = WFTM - LFTM,
-  DFTA = WFTA - LFTA,
-  DOR = WOR - LOR,
-  DDR = WDR - LDR,
-  DTO = WTO - LTO,
-  DAst = WAst - LAst,
-  DBlk = WBlk - LBlk,
-  DPF = WPF - LPF
-)
+# tourney_detailed_result <- tourney_detailed_result %>% mutate(
+#  DFTM = WFTM - LFTM,
+#  DStl = WStl - LStl,
+#  DFGA = WFGA - LFGA,
+#  DFGA3 = WFGA3 - LFGA3,
+#  DFGM3 = WFGM3 - LFGM3,
+#  DFTM = WFTM - LFTM,
+#  DFTA = WFTA - LFTA,
+#  DOR = WOR - LOR,
+#  DDR = WDR - LDR,
+#  DTO = WTO - LTO,
+#  DAst = WAst - LAst,
+#  DBlk = WBlk - LBlk,
+#  DPF = WPF - LPF
+# )
 
-tourney_detailed_result <- tourney_detailed_result %>% mutate(WTeamConfFactor = fct_lump(WTeamConf, 10))
+tourney_detailed_result <- tourney_detailed_result %>% mutate(HTeamConfFactor = fct_lump(HTConf, 10))
 
 tourney_detailed_result <- tourney_detailed_result %>% mutate(LTeamConfFactor = 
-                                                                fct_lump(LTeamConf, 10))
-
-tourney_selected_vars <- tourney_detailed_result %>% select(
-  DFTM, DStl, DFGA, DFGA3, DFGM3, DFTA, DOR, DDR,
-  DTO, DAst, Season, Round, WTeamName, LTeamName, WTeamConf,
-  LTeamConf, scoreDiff, WTeamSeed, LTeamSeed, DBlk, DPF, lower_team,
-  higher_team, lower_team_won 
-)
+                                                                fct_lump(LTConf, 10))
 
 View(tourney_detailed_result)
 
+# tourney_selected_vars <- tourney_detailed_result %>% select(
+#  DFTM, DStl, DFGA, DFGA3, DFGM3, DFTA, DOR, DDR,
+#  DTO, DAst, Round, WTeamConfFactor, WTeamID, LTeamID,
+#  LTeamConfFactor, scoreDiff, WTeamSeed, LTeamSeed, DBlk, DPF,
+#  higher_team_won, LFTM, LStl, LFGA, LFGA3, LFGM3, LFTA, LOR,
+#  LDR, LTO, LAst, WFTM, WStl, WFGA, WFGA3, WFGM3, WFTA, WOR, WDR, WTO, WAst
+#)
+
+tourney_detailed_result <- tourney_detailed_result %>% mutate(
+  SeedDifference = HTSeed - LTSeed
+)
+
+```
+
+Run some basic models against the tournament data - this gets simple accuracy above 71%
+```{r}
+View(tourney_detailed_result)
+
 # try out a logistic model
-glm_fit <- glm(lower_team_won ~ WTeamSeed + LTeamSeed + WTeamConfFactor,
-               data = tourney_selected_vars,
+glm_fit <- glm(higher_team_won ~ SeedDifference + HTeamConfFactor + LTeamConfFactor,
+               data = tourney_detailed_result,
                family = binomial)
 summary(glm_fit)
 
-names(tourney_selected_vars)
+preds_train_DF <- data.frame(
+  scores_logit = predict(glm_fit, type = "response"),
+  tourney_detailed_result
+)
 
-# not super explainable for the data
-mod1 <- lm(scoreDiff ~ WTeamConf + LTeamConf + 
-             WTeamSeed + LTeamSeed + Round, data = tourney_selected_vars)
+preds_train_DF <- preds_train_DF %>% mutate(
+  class_pred05 = ifelse(scores_logit > .5, "Yes", "No")
+)
 
-summary(mod1)
+# training data set
+table(preds_train_DF$class_pred05, preds_train_DF$higher_team_won)
 
 ```
+
+
 
 - Parse regular season data
 ```{r}
@@ -527,6 +593,16 @@ lin_mod2 <- lm(Viewers ~ scoreDiff + Round + IsUpset +
                data = tourney_views_ratings)
 
 summary(lin_mod2)
+
+preds_train_DF <- data.frame(
+  preds = predict(lin_mod2),
+  resids = tourney_views_ratings$Viewers - predict(lin_mod2),
+  tourney_views_ratings
+)
+
+# Check for Heteroschedasticity
+ggplot(preds_train_DF, aes(x = resids, y = preds)) + 
+  geom_point()
 
 
 # I can do an elastic net here too
