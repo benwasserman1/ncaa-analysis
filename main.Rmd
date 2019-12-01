@@ -38,7 +38,6 @@ rating_round_viewers <- read.csv("rating_round_viewers.csv")
 ########### BELOW ARE A VARIETY OF DATA CLEANING AND FEATURE ENGINEERING ################
 tourney_slots <- tourney_slots %>% rename(GameSlot = Slot)
 
-View(rounds_df)
 View(teams)
 
 # merge rounds, teams, and seeds
@@ -103,7 +102,6 @@ tourney_detailed_result <- tourney_detailed_result %>% mutate(
   lower_team_won = ifelse(WTeamID == lower_team, 1, 0)
 )
 
-View(tourney_detailed_result)
 
 # add team names
 teams <- teams %>% select(TeamName, TeamID)
@@ -112,14 +110,16 @@ tourney_detailed_result <-left_join(x = tourney_detailed_result,
                                     y = teams,
                                     by = "WTeamID")
 
+View(tourney_detailed_result)
+
 teams <- teams %>% rename(LTeamID = WTeamID)
 tourney_detailed_result <- left_join(x = tourney_detailed_result,
                                      y = teams, 
                                      by = "LTeamID")
 
 # renaming
-tourney_detailed_result %<>% rename(WTeamName = WTeamID,
-                                    LTeamName = LTeamID)
+tourney_detailed_result %<>% rename(WTeamName = TeamName.x,
+                                    LTeamName = TeamName.y)
 
 # add score difference
 tourney_detailed_result <- tourney_detailed_result %>% mutate(scoreDiff = WScore - LScore)
@@ -136,16 +136,6 @@ tourney_detailed_result <- tourney_detailed_result %>% mutate(Round = ifelse(
                                      ifelse(DayNum == 154, 6, 7))))))
 ))
 
-View(tourney_detailed_result)
-
-View(rating_round_viewers)
-
-# add TV ratings and viewers for championship games
-
-rating_round_viewers %<>% rename(Round = ï..Round)
-tourney_detailed_result <-left_join(x = tourney_detailed_result,
-                                    y = rating_round_viewers,
-                                    by = c("Season", "Round"))
 
 # factoring 
 tourney_detailed_result %<>% mutate(Season = factor(Season),
@@ -178,7 +168,12 @@ tourney_detailed_result <- tourney_detailed_result %>% mutate(
   DPF = WPF - LPF
 )
 
-tourney_detailed_result <- tourney_detailed_result %>% select(
+tourney_detailed_result <- tourney_detailed_result %>% mutate(WTeamConfFactor = fct_lump(WTeamConf, 10))
+
+tourney_detailed_result <- tourney_detailed_result %>% mutate(LTeamConfFactor = 
+                                                                fct_lump(LTeamConf, 10))
+
+tourney_selected_vars <- tourney_detailed_result %>% select(
   DFTM, DStl, DFGA, DFGA3, DFGM3, DFTA, DOR, DDR,
   DTO, DAst, Season, Round, WTeamName, LTeamName, WTeamConf,
   LTeamConf, scoreDiff, WTeamSeed, LTeamSeed, DBlk, DPF, lower_team,
@@ -187,22 +182,17 @@ tourney_detailed_result <- tourney_detailed_result %>% select(
 
 View(tourney_detailed_result)
 
-tourney_detailed_result <- tourney_detailed_result %>% mutate(WTeamConfFactor = fct_lump(WTeamConf, 10))
-
-tourney_detailed_result <- tourney_detailed_result %>% mutate(LTeamConfFactor = 
-                                                                fct_lump(LTeamConf, 10))
-
 # try out a logistic model
 glm_fit <- glm(lower_team_won ~ WTeamSeed + LTeamSeed + WTeamConfFactor,
-               data = tourney_detailed_result,
+               data = tourney_selected_vars,
                family = binomial)
 summary(glm_fit)
 
-names(tourney_detailed_result)
+names(tourney_selected_vars)
 
 # not super explainable for the data
 mod1 <- lm(scoreDiff ~ WTeamConf + LTeamConf + 
-             WTeamSeed + LTeamSeed + Round, data = tourney_detailed_result)
+             WTeamSeed + LTeamSeed + Round, data = tourney_selected_vars)
 
 summary(mod1)
 
@@ -456,9 +446,49 @@ corrplot(cormat, method = "number", type="lower")
 ```
 
 
-
+Working with TV ratings and number of viewers
 ```{r}
-# look in to making the TV ratings and viewers so we can predict how the quality of the tournament might correlate with ratings and viewers 
+# add TV ratings and viewers for championship games
+rating_round_viewers %<>% rename(Round = Round)
+rating_round_viewers <- rating_round_viewers %>% mutate(Season = factor(Season))
+
+tourney_finals_views_ratings <-left_join(x = tourney_detailed_result,
+                                    y = rating_round_viewers,
+                                    by = c("Season", "Round"))
+
+tourney_semi_views_ratings <- read.csv("semi_rating_round_viewers.csv")
+tourney_semi_views_ratings <- tourney_semi_views_ratings %>% rename(WTeamID = TeamID1)
+tourney_semi_views_ratings <- tourney_semi_views_ratings %>% rename(LTeamID = TeamID2)
+
+tourney_semi_views_ratings <- tourney_sem_views_ratings %>% mutate(
+  Season = factor(Season)
+)
+
+View(tourney_semi_views_ratings)
+
+# Data frame with the semi final ratings and viewers
+tourney_semi_views_ratings <- left_join(x = tourney_detailed_result,
+                                        y = tourney_semi_views_ratings,
+                                        by= c("Season", "WTeamID", "LTeamID"))
+
+
+# Data frame with the finals ratings and viewers
+tourney_finals_views_ratings <- tourney_finals_views_ratings %>% filter(
+  Round == 6
+)
+
+tourney_semi_views_ratings <- tourney_semi_views_ratings %>% rename(Round = Round.x)
+tourney_semi_views_ratings <- tourney_semi_views_ratings %>% select(-Round.y)
+
+tourney_semi_views_ratings <- tourney_semi_views_ratings %>% filter(
+  Round == 5
+)
+
+tourney_views_ratings <- rbind(tourney_semi_views_ratings, tourney_finals_views_ratings)
+
+View(tourney_views_ratings)
+
+# NOW WE CAN RUN REGRESSION ON RATINGS AND VIEWERSHIP
 
 ```
 
