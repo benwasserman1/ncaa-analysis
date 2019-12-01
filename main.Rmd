@@ -30,7 +30,6 @@ tourney_seeds_round_slots <- read.csv("NCAATourneySeedRoundSlots.csv")
 tourney_detailed_result <- read.csv("NCAATourneyDetailedResults.csv")
 tourney_slots <- read.csv("NCAATourneySlots.csv")
 regular_season_detailed_result <- read.csv("RegularSeasonDetailedResults.csv")
-rating_round_viewers <- read.csv("rating_round_viewers.csv")
 ```
 
 - Parse tournament data
@@ -448,6 +447,11 @@ corrplot(cormat, method = "number", type="lower")
 
 Working with TV ratings and number of viewers
 ```{r}
+rating_round_viewers <- read.csv("rating_round_viewers.csv")
+tourney_semi_views_ratings <- read.csv("semi_rating_round_viewers.csv")
+
+View(tourney_semi_views_ratings)
+
 # add TV ratings and viewers for championship games
 rating_round_viewers %<>% rename(Round = Round)
 rating_round_viewers <- rating_round_viewers %>% mutate(Season = factor(Season))
@@ -456,15 +460,12 @@ tourney_finals_views_ratings <-left_join(x = tourney_detailed_result,
                                     y = rating_round_viewers,
                                     by = c("Season", "Round"))
 
-tourney_semi_views_ratings <- read.csv("semi_rating_round_viewers.csv")
 tourney_semi_views_ratings <- tourney_semi_views_ratings %>% rename(WTeamID = TeamID1)
 tourney_semi_views_ratings <- tourney_semi_views_ratings %>% rename(LTeamID = TeamID2)
 
-tourney_semi_views_ratings <- tourney_sem_views_ratings %>% mutate(
+tourney_semi_views_ratings <- tourney_semi_views_ratings %>% mutate(
   Season = factor(Season)
 )
-
-View(tourney_semi_views_ratings)
 
 # Data frame with the semi final ratings and viewers
 tourney_semi_views_ratings <- left_join(x = tourney_detailed_result,
@@ -486,9 +487,52 @@ tourney_semi_views_ratings <- tourney_semi_views_ratings %>% filter(
 
 tourney_views_ratings <- rbind(tourney_semi_views_ratings, tourney_finals_views_ratings)
 
-View(tourney_views_ratings)
+tourney_views_ratings <- tourney_views_ratings %>% mutate(
+  Network = factor(Network)
+)
 
-# NOW WE CAN RUN REGRESSION ON RATINGS AND VIEWERSHIP
+# how can I manipulate to look at upsets
+View(tourney_views_ratings)
+tourney_views_ratings <- tourney_views_ratings %>% mutate(
+  IsUpset = ifelse(WTeamSeed < LTeamSeed, 1, 0)
+)
+
+tourney_views_ratings <- tourney_views_ratings %>% mutate(
+  SeedDifference = abs(WTeamSeed - LTeamSeed)
+)
+
+tourney_views_ratings <- tourney_views_ratings %>% mutate(
+  TotalThreesMade = WFGM3 + LFGM3,
+  TotalFieldGoalsAttempts = WFGA + LFGA,
+  TotalPointsScored = WScore + LScore
+)
+
+
+```
+
+
+Regression for number of viewers and TV ratings
+```{r}
+##### Will need to do cross validation here since there isn't a ton of data ########
+
+names(tourney_views_ratings)
+
+lin_mod1 <- lm(Viewers ~ IsUpset + SeedDifference + Round,
+               data = tourney_views_ratings)
+
+# score difference and round are significant, ACC games are relevant
+lin_mod2 <- lm(Viewers ~ scoreDiff + Round + IsUpset + 
+                 relevel(WTeamConfFactor, ref="Other") + 
+                 relevel(LTeamConfFactor, ref="Other"),
+               data = tourney_views_ratings)
+
+summary(lin_mod2)
+
+
+# I can do an elastic net here too
+
+
+# I can show a variety of graphs as well
 
 ```
 
