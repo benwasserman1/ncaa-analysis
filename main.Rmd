@@ -24,8 +24,8 @@ rm(list = ls())
 tourney_games <- read.csv("ConferenceTourneyGames.csv")
 tourney_compact_results <- read.csv("NCAATourneyCompactResults.csv")
 regular_season_compact_results <- read.csv("RegularSeasonCompactResults.csv")
-seasons <- read.csv("Seasons.csv")
-team_coaches <- read.csv("TeamCoaches.csv")
+#seasons <- read.csv("Seasons.csv")
+#team_coaches <- read.csv("TeamCoaches.csv")
 teams <- read.csv("Teams.csv")
 team_conferences <- read.csv("TeamConferences.csv")
 tourney_seeds <- read.csv("NCAATourneySeeds.csv")
@@ -33,6 +33,7 @@ tourney_seeds_round_slots <- read.csv("NCAATourneySeedRoundSlots.csv")
 tourney_detailed_result <- read.csv("NCAATourneyDetailedResults.csv")
 tourney_slots <- read.csv("NCAATourneySlots.csv")
 regular_season_detailed_result <- read.csv("RegularSeasonDetailedResults.csv")
+rankings <- read.csv("MasseyOrdinals.csv")
 ```
 
 - Parse tournament data
@@ -40,7 +41,127 @@ regular_season_detailed_result <- read.csv("RegularSeasonDetailedResults.csv")
 ########### BELOW ARE A VARIETY OF DATA CLEANING AND FEATURE ENGINEERING ################
 tourney_slots <- tourney_slots %>% rename(GameSlot = Slot)
 
-View(teams)
+rankings <- rankings %>% filter(RankingDayNum > 132)
+
+table(rankings$SystemName)
+
+rankings <- rankings %>% rename(DayNum = RankingDayNum)
+
+# parse rankings
+bih_rankings <- rankings %>% filter(SystemName == 'BIH')
+col_rankings <- rankings %>% filter(SystemName == 'COL')
+dol_rankings <- rankings %>% filter(SystemName == 'DOL')
+mor_rankings <- rankings %>% filter(SystemName == 'MOR')
+wlk_rankings <- rankings %>% filter(SystemName == 'WLK')
+wob_rankings <- rankings %>% filter(SystemName == 'WOB')
+wol_rankings <- rankings %>% filter(SystemName == 'WOL')
+
+bih_rankings <- bih_rankings %>% rename(WTeamID = TeamID,
+                                        WRankBih = OrdinalRank)
+
+col_rankings <- col_rankings %>% rename(WTeamID = TeamID,
+                                        WRankCol = OrdinalRank)
+
+dol_rankings <- dol_rankings %>% rename(WTeamID = TeamID,
+                                        WRankDol = OrdinalRank)
+
+wlk_rankings <- wlk_rankings %>% rename(WTeamID = TeamID,
+                                        WRankWlk = OrdinalRank)
+
+wob_rankings <- wob_rankings %>% rename(WTeamID = TeamID,
+                                        WRankWob = OrdinalRank)
+
+wol_rankings <- wol_rankings %>% rename(WTeamID = TeamID,
+                                        WRankWol = OrdinalRank)
+
+mor_rankings <- mor_rankings %>% rename(WTeamID = TeamID,
+                                        WRankMor = OrdinalRank)
+
+
+tourney_detailed_result <-left_join(x = tourney_detailed_result,
+                                    y = bih_rankings,
+                                    by = c("Season", "WTeamID"))
+
+tourney_detailed_result <-left_join(x = tourney_detailed_result,
+                                    y = wob_rankings,
+                                    by = c("Season", "WTeamID"))
+
+tourney_detailed_result <-left_join(x = tourney_detailed_result,
+                                    y = wol_rankings,
+                                    by = c("Season", "WTeamID"))
+
+tourney_detailed_result <-left_join(x = tourney_detailed_result,
+                                    y = wlk_rankings,
+                                    by = c("Season", "WTeamID"))
+
+tourney_detailed_result <-left_join(x = tourney_detailed_result,
+                                    y = dol_rankings,
+                                    by = c("Season", "WTeamID"))
+
+tourney_detailed_result <-left_join(x = tourney_detailed_result,
+                                    y = col_rankings,
+                                    by = c("Season", "WTeamID"))
+
+tourney_detailed_result <-left_join(x = tourney_detailed_result,
+                                    y = mor_rankings,
+                                    by = c("Season", "WTeamID"))
+
+
+# add losing teams rankings
+bih_rankings <- bih_rankings %>% rename(LTeamID = WTeamID,
+                                        LRankBih = WRankBih)
+
+col_rankings <- col_rankings %>% rename(LTeamID = WTeamID,
+                                        LRankCol = WRankCol)
+
+dol_rankings <- dol_rankings %>% rename(LTeamID = WTeamID,
+                                        LRankDol = WRankDol)
+
+wlk_rankings <- wlk_rankings %>% rename(LTeamID = WTeamID,
+                                        LRankWlk = WRankWlk)
+
+wob_rankings <- wob_rankings %>% rename(LTeamID = WTeamID,
+                                        LRankWob = WRankWob)
+
+wol_rankings <- wol_rankings %>% rename(LTeamID = WTeamID,
+                                        LRankWol = WRankWol)
+
+mor_rankings <- mor_rankings %>% rename(LTeamID = WTeamID,
+                                        LRankMor = WRankMor)
+
+
+tourney_detailed_result <-left_join(x = tourney_detailed_result,
+                                    y = bih_rankings,
+                                    by = c("Season", "LTeamID"))
+
+tourney_detailed_result <-left_join(x = tourney_detailed_result,
+                                    y = wob_rankings,
+                                    by = c("Season", "LTeamID"))
+
+tourney_detailed_result <-left_join(x = tourney_detailed_result,
+                                    y = wol_rankings,
+                                    by = c("Season", "LTeamID"))
+
+tourney_detailed_result <-left_join(x = tourney_detailed_result,
+                                    y = wlk_rankings,
+                                    by = c("Season", "LTeamID"))
+
+tourney_detailed_result <-left_join(x = tourney_detailed_result,
+                                    y = dol_rankings,
+                                    by = c("Season", "LTeamID"))
+
+tourney_detailed_result <-left_join(x = tourney_detailed_result,
+                                    y = col_rankings,
+                                    by = c("Season", "LTeamID"))
+
+tourney_detailed_result <-left_join(x = tourney_detailed_result,
+                                    y = mor_rankings,
+                                    by = c("Season", "LTeamID"))
+
+# remove unecessary columns
+tourney_detailed_result = tourney_detailed_result[,-grep("^DayNum.",colnames(tourney_detailed_result))]
+tourney_detailed_result = tourney_detailed_result[,-grep("^SystemName",colnames(tourney_detailed_result))]
+
 
 # merge rounds, teams, and seeds
 rounds_df <- left_join(x = tourney_slots,
@@ -141,18 +262,36 @@ tourney_detailed_result <- tourney_detailed_result %>% mutate(
   HTBlk = ifelse(higher_team == WTeamID, WBlk, LBlk),
   LTBlk = ifelse(lower_team == WTeamID, WBlk, LBlk),
   HTPF = ifelse(higher_team == WTeamID, WPF, LPF),
-  LTPF = ifelse(lower_team == WTeamID, WPF, LPF)
+  LTPF = ifelse(lower_team == WTeamID, WPF, LPF),
+  HTBih = ifelse(higher_team == WTeamID, WRankBih, LRankBih),
+  LTBih = ifelse(lower_team == WTeamID, WRankBih, LRankBih),
+  HTCol = ifelse(higher_team == WTeamID, WRankCol, LRankCol),
+  LTCol = ifelse(lower_team == WTeamID, WRankCol, LRankCol),
+  HTDol = ifelse(higher_team == WTeamID, WRankDol, LRankDol),
+  LTDol = ifelse(lower_team == WTeamID, WRankDol, LRankDol),
+  HTMor = ifelse(higher_team == WTeamID, WRankMor, LRankMor),
+  LTMor = ifelse(lower_team == WTeamID, WRankMor, LRankMor),
+  HTWlk = ifelse(higher_team == WTeamID, WRankWlk, LRankWlk),
+  LTWlk = ifelse(lower_team == WTeamID, WRankWlk, LRankWlk),
+  HTWob = ifelse(higher_team == WTeamID, WRankWob, LRankWob),
+  LTWob = ifelse(lower_team == WTeamID, WRankWob, LRankWob),
+  HTWol = ifelse(higher_team == WTeamID, WRankWol, LRankWol),
+  LTWol = ifelse(lower_team == WTeamID, WRankWol, LRankWol),
+  DefaultTest = ifelse(WTeamSeed > LTeamSeed, 1, 0)
 )
 
 # Create new variables that account for the randomness of seed assignment
 names(tourney_detailed_result)
 
+# need to think about correlation between all the rankings
 tourney_detailed_result <- tourney_detailed_result %>% select(
   Season, DayNum, NumOT, lower_team, higher_team, higher_team_won,
   HTSeed, LTSeed, HTScore, LTScore, HTConf, LTConf, HTFGM, 
   LTFGM, HTFGA, LTFGA, HTFGM3, LTFGM3, HTFGA3, LTFGA3, HTFTM, 
   LTFTM, HTFTA, LTFTA, HTOR, LTOR, HTDR, LTDR, HTAst, LTAst, HTTO,
-  LTTO, HTStl, LTStl, HTBlk, LTBlk, HTPF, LTPF
+  LTTO, HTStl, LTStl, HTBlk, LTBlk, HTPF, LTPF, HTBih, LTBih, HTCol,
+  LTCol, HTDol, LTDol, HTMor, LTMor, HTWlk, LTWlk, HTWob, LTWob, HTWol,
+  LTWol, DefaultTest
 )
 
 dim(tourney_detailed_result)
@@ -237,14 +376,31 @@ tourney_detailed_result <- tourney_detailed_result %>% mutate(
 
 ```
 
-Run some basic models against the tournament data - this gets simple accuracy above 71%
+See how well the model performs only by seed
 ```{r}
-View(tourney_detailed_result)
+preds_seed_df <- data.frame(
+  tourney_detailed_result
+)
 
-# try out a logistic model
-glm_fit <- glm(higher_team_won ~ SeedDifference + HTeamConfFactor + LTeamConfFactor,
+preds_seed_df <- preds_seed_df %>% mutate(
+  class_pred = ifelse(DefaultTest == 1, "Yes", "No")
+)
+
+table(preds_seed_df$class_pred, preds_seed_df$higher_team_won)
+
+```
+
+
+```{r}
+tourney_detailed_result <- na.omit(tourney_detailed_result)
+
+names(tourney_detailed_result)
+
+glm_fit <- glm(higher_team_won ~ SeedDifference + HTBih + LTBih + HTWol + LTWol + HTWlk + LTWlk + HTWob
+               + LTWob + HTCol + LTCol + HTMor + LTMor + HTDol + LTDol + LTeamConfFactor,
                data = tourney_detailed_result,
                family = binomial)
+
 summary(glm_fit)
 
 preds_train_DF <- data.frame(
@@ -256,11 +412,82 @@ preds_train_DF <- preds_train_DF %>% mutate(
   class_pred05 = ifelse(scores_logit > .5, "Yes", "No")
 )
 
+table(preds_train_DF$class_pred05, preds_train_DF$higher_team_won)
+```
+
+Run some basic models against the tournament data
+```{r}
+# split into testing and training data
+
+
+# try out a logistic model
+glm_fit <- glm(higher_team_won ~ SeedDifference + HTeamConfFactor + LTeamConfFactor,
+               data = tourney_detailed_result,
+               family = binomial)
+
+summary(glm_fit)
+
+preds_train_DF <- data.frame(
+  scores_logit = predict(glm_fit, type = "response"),
+  tourney_detailed_result
+)
+
+preds_train_DF <- preds_train_DF %>% mutate(
+  class_pred05 = ifelse(scores_logit > .5, "Yes", "No")
+)
+
+# now I can start to do more with this and jump into more statistics
+View(preds_train_DF)
+
 # training data set
 table(preds_train_DF$class_pred05, preds_train_DF$higher_team_won)
 
 ```
 
+
+Random Forest Model
+```{r}
+
+
+```
+
+
+```{r}
+library(glmnet)
+library(glmnetUtils)
+library(coefplot)
+
+tourney_without_conf <- tourney_detailed_result %>% select(-c(HTeamConfFactor, LTeamConfFactor, HTConf, LTConf, HigherTeamName, LowerTeamName, scoreDiff, DayNum, Season, NumOT, HTTO, LTTO, LTFGA, LTFGA3, LTFGM, LTFTM, LTFTA,
+                                                              LTBlk, LTStl, LTOR, LTDR, LTAst, LTFGM3, LTPF,
+                                                              LTScore, HTScore, higher_team, lower_team,
+                                                              HTSeed, LTSeed,
+                                                              Round))
+
+# alpha = 0 for ridge SeedDifference + HTeamConfFactor + LTeamConfFactor
+ridge_fit <- cv.glmnet(higher_team_won ~ .,
+          data = tourney_without_conf,
+          family = "binomial",
+          alpha = 0,
+          nfolds = 10)
+
+coefpath(ridge_fit)
+
+plot(lasso_fit)
+
+lasso_preds <- predict(lasso_fit, newdata = tourney_detailed_result, s = lasso_fit$lambda.min)
+
+preds_train_lasso <- data.frame(
+  tourney_detailed_result,
+  lasso_preds
+)
+
+preds_train_lasso <- preds_train_lasso %>% mutate(
+  class_pred05 = ifelse(lasso_preds > .5, "Yes", "No")
+)
+
+table(preds_train_DF$class_pred05, preds_train_DF$higher_team_won)
+
+```
 
 
 - Parse regular season data
