@@ -10,6 +10,7 @@ output:
 knitr::opts_chunk$set(echo = TRUE)
 library('tidyverse')
 library('magrittr')
+library('caret')
 ```
 
 In this document we clean the data, join the day, add some columns, create factors, and provide some summary statistics around the data. We are  also interested in adding TV ratings and/or revenue to see how upsets and seasons affect TV ratings and revenue generated
@@ -433,7 +434,7 @@ preds_train_DF <- data.frame(
 )
 
 preds_train_DF <- preds_train_DF %>% mutate(
-  class_pred05 = ifelse(scores_logit > .5, "Yes", "No")
+  class_pred05 = ifelse(scores_logit > .5, 1, 0)
 )
 
 # now I can start to do more with this and jump into more statistics
@@ -441,6 +442,8 @@ View(preds_train_DF)
 
 # training data set
 table(preds_train_DF$class_pred05, preds_train_DF$higher_team_won)
+
+# NEXT WE SHOULD ADD ROC, LIFT CHART, and AUC
 
 ```
 
