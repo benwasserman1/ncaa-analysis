@@ -32,6 +32,7 @@ team_conferences <- read.csv("TeamConferences.csv")
 tourney_seeds <- read.csv("NCAATourneySeeds.csv")
 tourney_seeds_round_slots <- read.csv("NCAATourneySeedRoundSlots.csv")
 tourney_detailed_result <- read.csv("NCAATourneyDetailedResults.csv")
+tourney_result_unmodified <- read.csv("NCAATourneyDetailedResults.csv")
 tourney_slots <- read.csv("NCAATourneySlots.csv")
 regular_season_detailed_result <- read.csv("RegularSeasonDetailedResults.csv")
 rankings <- read.csv("MasseyOrdinals.csv")
@@ -474,6 +475,8 @@ ridge_fit <- cv.glmnet(higher_team_won ~ .,
           nfolds = 10)
 
 coefpath(ridge_fit)
+table(preds_train_DF$class_pred05, preds_train_DF$higher_team_won)
+
 
 plot(lasso_fit)
 
@@ -637,17 +640,38 @@ Summary Statistics
 summary(tourney_detailed_result)
 
 # wins per team
-tourney_wins_higher_team <- tourney_detailed_result %>% group_by(higher_team) %>% 
-  summarize(num_wins = n()) %>%
-  arrange(desc(num_wins))
-tourney_wins_lower_team <- tourney_detailed_result %>% group_by(lower_team) %>% 
-  summarize(num_wins = n()) %>%
-  arrange(desc(num_wins))
-tourney_wins_per_team <- left_join(x = tourney_wins_per_team,
-                                     y = teams, 
-                                     by = "higher_team")
-tourney_wins_per_team %<>% select(higher_team, TeamName, num_wins)
-head(tourney_wins_per_team)
+wins_per_team <- tourney_result_unmodified %>% group_by(WTeamID) %>% summarize(num_wins = n()) %>% arrange(desc(num_wins))
+wins_per_team
+wins_per_team %<>% rename(higher_team = WTeamID)
+wins_per_team <- left_join(x = wins_per_team,
+                           y = teams,
+                           by = "higher_team")
+wins_per_team <- wins_per_team %>% rename(WTeamID = higher_team) %>% select(WTeamID, TeamName, num_wins) %>% arrange(desc(num_wins))
+head(wins_per_team)
+
+# winning summary 
+winning_pts_summary <- tourney_result_unmodified %>% summarize(min_fg_made = min(WFGM),
+                                                               mean_fg_made = mean(WFGM),
+                                                               max_fg_made = max(WFGM),
+                                                               sd_fg_made = sd(WFGM),
+                                                               min_3pts_made = min(WFGM3),
+                                                               mean_3pts_made = mean(WFGM3),
+                                                               max_3pts_made = max(WFGM3),
+                                                               sd_3pts_made = sd(WFGM3),
+                                                               )
+winning_pts_summary
+
+# mean winner points summary
+mean_pts_summary <- tourney_result_unmodified %>% summarize(win_mean_fg_made = mean(WFGM),
+                                                            win_mean_3pts_made = mean(WFGM3),
+                                                            lose_mean_fg_made = mean(LFGM),
+                                                            lose_mean_3pts_made = mean(LFGM3)
+                                                            )
+mean_pts_summary
+
+# season summary
+season <- tourney_detailed_result1 %>% group_by(Season) %>% group_by(winner) %>% summarize(mean(HTScore))
+season
 
 # summary of Scores and Points
 summary_scores_points <- tourney_detailed_result %>%
