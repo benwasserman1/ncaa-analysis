@@ -631,28 +631,42 @@ for (i in 1:folds) {
 
 ```
 
-
+Summary Statistics
 ```{r}
 # summary statistics
 summary(tourney_detailed_result)
 
 # wins per team
-tourney_wins_per_team <- tourney_detailed_result %>% group_by(WTeamName) %>% 
+tourney_wins_higher_team <- tourney_detailed_result %>% group_by(higher_team) %>% 
   summarize(num_wins = n()) %>%
   arrange(desc(num_wins))
+tourney_wins_lower_team <- tourney_detailed_result %>% group_by(lower_team) %>% 
+  summarize(num_wins = n()) %>%
+  arrange(desc(num_wins))
+tourney_wins_per_team <- left_join(x = tourney_wins_per_team,
+                                     y = teams, 
+                                     by = "higher_team")
+tourney_wins_per_team %<>% select(higher_team, TeamName, num_wins)
 head(tourney_wins_per_team)
 
-# wins per team per season
-wins_per_team_per_season <- tourney_detailed_result %>% group_by(Season) %>% 
-  count(WTeamName)
-head(wins_per_team_per_season)
+# summary of Scores and Points
+summary_scores_points <- tourney_detailed_result %>%
+  select(HTScore, LTScore, HTFGM, HTFGA, LTFGM, LTFGA, HTFGM3, HTFGA3, LTFGM3, LTFGA3) 
+summary(summary_scores_points)
 
-# summary details of score by seed
-seed_details <- tourney_detailed_result %>% group_by(WTeamSeed) %>%
-  summarize(avg_points_per_seed = mean(WScore),
-            max_points_per_seed = max(WScore),
-            min_points_per_seed = min(WScore))
-seed_details
+# summary details of score by HTSeed
+HTSeed_details <- tourney_detailed_result %>% group_by(HTSeed) %>%
+  summarize(avg_points_HTSeed = mean(HTScore),
+            max_points_HTSeed = max(HTScore),
+            min_points_HTSeed = min(HTScore))
+HTSeed_details
+
+# summary details of score by LTSeed
+LTSeed_details <- tourney_detailed_result %>% group_by(LTSeed) %>%
+  summarize(avg_points_LTSeed = mean(LTScore),
+            max_points_LTSeed = max(LTScore),
+            min_points_LTSeed = min(LTScore))
+LTSeed_details
 
 # summary details of score by conference
 conf_details <- tourney_detailed_result %>% group_by(WTeamConf) %>%
@@ -663,9 +677,9 @@ conf_details
 
 # summary details of three points by season
 three_pt_details <- tourney_detailed_result %>% group_by(Season) %>%
-  summarize(avg_three_pts = mean(WFGM3),
-            max_three_pts = max(WFGM3),
-            min_three_pts = min(WFGM3))
+  summarize(avg_three_pts = mean(HTFGM3),
+            max_three_pts = max(HTFGM3),
+            min_three_pts = min(HTFGM3))
 three_pt_details
 
 # summay details of field goals by season
