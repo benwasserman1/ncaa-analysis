@@ -33,6 +33,7 @@ team_conferences <- read.csv("TeamConferences.csv")
 tourney_seeds <- read.csv("NCAATourneySeeds.csv")
 tourney_seeds_round_slots <- read.csv("NCAATourneySeedRoundSlots.csv")
 tourney_detailed_result <- read.csv("NCAATourneyDetailedResults.csv")
+tourney_result_unmodified <- read.csv("NCAATourneyDetailedResults.csv")
 tourney_slots <- read.csv("NCAATourneySlots.csv")
 regular_detailed_result <- read.csv("RegularSeasonDetailedResults.csv")
 rankings <- read.csv("MasseyOrdinals.csv")
@@ -786,7 +787,7 @@ View(tourney_model_df)
 
 ```
 
-
+Summary Statistics
 ```{r}
 library(glmnet)
 library(glmnetUtils)
@@ -798,6 +799,60 @@ names(tourney_detailed_result)
 
 tourney_without_conf <- tourney_detailed_result %>% select(AvgSeedDiff, SeedDifference, HTeamConfFactor, LTeamConfFactor, higher_team_won)
 
+
+# wins per team
+wins_per_team <- tourney_result_unmodified %>% group_by(WTeamID) %>% summarize(num_wins = n()) %>% arrange(desc(num_wins))
+wins_per_team
+wins_per_team %<>% rename(higher_team = WTeamID)
+wins_per_team <- left_join(x = wins_per_team,
+                           y = teams,
+                           by = "higher_team")
+wins_per_team <- wins_per_team %>% rename(WTeamID = higher_team) %>% select(WTeamID, TeamName, num_wins) %>% arrange(desc(num_wins))
+head(wins_per_team)
+
+# winning summary 
+winning_pts_summary <- tourney_result_unmodified %>% summarize(min_fg_made = min(WFGM),
+                                                               mean_fg_made = mean(WFGM),
+                                                               max_fg_made = max(WFGM),
+                                                               sd_fg_made = sd(WFGM),
+                                                               min_3pts_made = min(WFGM3),
+                                                               mean_3pts_made = mean(WFGM3),
+                                                               max_3pts_made = max(WFGM3),
+                                                               sd_3pts_made = sd(WFGM3),
+                                                               )
+winning_pts_summary
+
+# mean winner points summary
+mean_pts_summary <- tourney_result_unmodified %>% summarize(win_mean_fg_made = mean(WFGM),
+                                                            win_mean_3pts_made = mean(WFGM3),
+                                                            lose_mean_fg_made = mean(LFGM),
+                                                            lose_mean_3pts_made = mean(LFGM3)
+                                                            )
+mean_pts_summary
+
+# season summary
+season <- tourney_detailed_result1 %>% group_by(Season) %>% group_by(winner) %>% summarize(mean(HTScore))
+season
+
+# summary of Scores and Points
+summary_scores_points <- tourney_detailed_result %>%
+  select(HTScore, LTScore, HTFGM, HTFGA, LTFGM, LTFGA, HTFGM3, HTFGA3, LTFGM3, LTFGA3) 
+summary(summary_scores_points)
+
+# summary details of score by HTSeed
+HTSeed_details <- tourney_detailed_result %>% group_by(HTSeed) %>%
+  summarize(avg_points_HTSeed = mean(HTScore),
+            max_points_HTSeed = max(HTScore),
+            min_points_HTSeed = min(HTScore))
+HTSeed_details
+
+# summary details of score by LTSeed
+LTSeed_details <- tourney_detailed_result %>% group_by(LTSeed) %>%
+  summarize(avg_points_LTSeed = mean(LTScore),
+            max_points_LTSeed = max(LTScore),
+            min_points_LTSeed = min(LTScore))
+LTSeed_details
+
 set.seed(1861)
 (num_rows <- nrow(tourney_detailed_result))
 train_idx <- sample(1:num_rows, floor(.8 * num_rows))
@@ -805,6 +860,13 @@ train_idx <- sample(1:num_rows, floor(.8 * num_rows))
 tourney_detailed_train <- tourney_without_conf %>% slice(train_idx)
 tourney_detailed_test <- tourney_without_conf %>% slice(-train_idx)
 tourney_detailed_2017 <- subset(tourney_detailed_result, Season == 2017)
+
+# summary details of three points by season
+three_pt_details <- tourney_detailed_result %>% group_by(Season) %>%
+  summarize(avg_three_pts = mean(HTFGM3),
+            max_three_pts = max(HTFGM3),
+            min_three_pts = min(HTFGM3))
+three_pt_details
 
 # alpha = 0 for ridge 
 ridge_fit <- cv.glmnet(higher_team_won ~ .,
