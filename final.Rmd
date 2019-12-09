@@ -12,6 +12,12 @@ library('tidyverse')
 library('magrittr')
 library('caret')
 library(plotROC)
+library(glmnet)
+library(glmnetUtils)
+library(coefplot)
+library('ggthemes')
+library(randomForest)
+library(randomForestExplainer)
 ```
 
 
@@ -45,10 +51,10 @@ library(plotROC)
   - In Sample
   - Out of Sample
   - With Regular Season In Game Data
+  
+### Elastic Net
 
 ### Ridge Model
-
-### Lasso Model
 
 ### Random Forest Model
 
@@ -79,12 +85,13 @@ tourney_semi_views_ratings <- read.csv("semi_rating_round_viewers.csv")
 
 Parse 7 different rankings
 ```{r}
-tourney_rankings <- rankings %>% filter(RankingDayNum > 132) %>% rename (DayNum = RankingDayNum) %>% select(
+tourney_rankings <- rankings %>% filter(RankingDayNum > 132) %>% 
+  rename (DayNum = RankingDayNum) %>% select(
   Season, SystemName, TeamID, everything()
 )
 
 # get rid of duplicates by system name, season, and team ID
-tourney_rankings <- tourney_rankings[!duplicated(rankings[1:3]),]
+tourney_rankings <- tourney_rankings[!duplicated(tourney_rankings[1:3]),]
 
 # parse rankings
 bih_rankings <- tourney_rankings %>% filter(SystemName == 'BIH')
@@ -207,8 +214,13 @@ tourney_d_result <-left_join(x = tourney_d_result,
                                     by = c("Season", "LTeamID"))
 
 # remove unecessary columns
-tourney_d_result = tourney_d_result[,-grep("^DayNum.",colnames(tourney_d_result))]
+tourney_d_result = tourney_d_result[,-grep("^DayNum.y",colnames(tourney_d_result))]
+tourney_d_result = tourney_d_result[,-grep("^DayNum.x.",colnames(tourney_d_result))]
 tourney_d_result = tourney_d_result[,-grep("^SystemName",colnames(tourney_d_result))]
+
+tourney_d_result <- tourney_d_result %>% select(-DayNum)
+
+tourney_d_result <- tourney_d_result %>% rename(DayNum = DayNum.x)
 
 ```
 
@@ -249,6 +261,7 @@ tourney_d_result$WTeamSeed <- as.integer(gsub('[a-zA-Z]', '',
 tourney_d_result$LTeamSeed <- as.integer(gsub('[a-zA-Z]', '',
                                                      tourney_d_result$LTeamSeed))
 
+
 ```
 
 Add team conferences to detailed result
@@ -274,7 +287,6 @@ tourney_d_result <- tourney_d_result %>% rename(
 tourney_d_result <- tourney_d_result %>% mutate(LTeamConfFactor = fct_lump(LTeamConf, 10))
 
 tourney_d_result <- tourney_d_result %>% mutate(WTeamConfFactor = fct_lump(WTeamConf, 10))
-
 
 ```
 
@@ -337,6 +349,7 @@ tourney_d_result <- tourney_d_result %>% mutate(
   DefaultTest = ifelse(WTeamSeed > LTeamSeed, 1, 0)
 )
 
+
 ```
 
 Add team names to the detailed data frame for more interpretability
@@ -359,14 +372,12 @@ tourney_d_result <- left_join(x = tourney_d_result,
 tourney_d_result %<>% rename(LowerTeamName = TeamName.x,
                                     HigherTeamName = TeamName.y)
 
-
 ```
 
 Add score difference, seed difference and rounds
 ```{r}
 # add score difference
 tourney_d_result <- tourney_d_result %>% mutate(scoreDiff = HTScore - LTScore)
-
 
 # add rounds to tourney_d_results
 tourney_d_result <- tourney_d_result %>% mutate(Round = ifelse(
@@ -395,9 +406,9 @@ tourney_d_result %<>% mutate(Season = factor(Season),
                                     LowerTeamName = factor(LowerTeamName),
                                     NumOT = factor(NumOT))
 
-tourney_d_result <- tourney_d_result %>% mutate(HTeamConfFactor = fct_lump(HTConf, 10))
+tourney_d_result <- tourney_d_result %>% mutate(HigherTeamConfFactor = fct_lump(HTConf, 10))
 
-tourney_d_result <- tourney_d_result %>% mutate(LTeamConfFactor = 
+tourney_d_result <- tourney_d_result %>% mutate(LowerTeamConfFactor = 
                                                                 fct_lump(LTConf, 10))
 
 ```
@@ -419,7 +430,6 @@ tourney_d_result <- tourney_d_result %>% mutate(
   DBlk = HTBlk - LTBlk,
   DPF = HTPF - LTPF
 )
-
 ```
 
 Parse the regular season data. Since the regular season tables have slightly different attributes and we won't always use both datasets combined, we will initially parse them separately and then join them as needed.
@@ -431,16 +441,16 @@ reg_rankings <- rankings %>% filter(between(rankings$RankingDayNum, 110, 130)) %
                                                                                       everything())
 
 # get rid of duplicates by system name, season, and team ID
-reg_rankings <- reg_rankings[!duplicated(rankings[1:3]),]
+reg_rankings <- reg_rankings[!duplicated(reg_rankings[1:3]),]
 
 # parse rankings by the ranking system
-bih_rankings <- rankings %>% filter(SystemName == 'BIH')
-col_rankings <- rankings %>% filter(SystemName == 'COL')
-dol_rankings <- rankings %>% filter(SystemName == 'DOL')
-mor_rankings <- rankings %>% filter(SystemName == 'MOR')
-wlk_rankings <- rankings %>% filter(SystemName == 'WLK')
-wob_rankings <- rankings %>% filter(SystemName == 'WOB')
-wol_rankings <- rankings %>% filter(SystemName == 'WOL')
+bih_rankings <- reg_rankings %>% filter(SystemName == 'BIH')
+col_rankings <- reg_rankings %>% filter(SystemName == 'COL')
+dol_rankings <- reg_rankings %>% filter(SystemName == 'DOL')
+mor_rankings <- reg_rankings %>% filter(SystemName == 'MOR')
+wlk_rankings <- reg_rankings %>% filter(SystemName == 'WLK')
+wob_rankings <- reg_rankings %>% filter(SystemName == 'WOB')
+wol_rankings <- reg_rankings %>% filter(SystemName == 'WOL')
 
 # rename to prepare for join based
 bih_rankings <- bih_rankings %>% rename(WTeamID = TeamID,
@@ -470,6 +480,7 @@ mor_rankings <- mor_rankings %>% rename(WTeamID = TeamID,
 reg_detailed_result <-left_join(x = regular_detailed_result,
                                     y = bih_rankings,
                                     by = c("Season", "WTeamID"))
+
 
 reg_detailed_result <-left_join(x = reg_detailed_result,
                                     y = wob_rankings,
@@ -520,12 +531,6 @@ wol_rankings <- wol_rankings %>% rename(LTeamID = WTeamID,
 
 mor_rankings <- mor_rankings %>% rename(LTeamID = WTeamID,
                                         LRankMor = WRankMor)
-
-
-# Running out of memory here - ideally would just configure to this to run on a cloud instance but I will clear some files I don't use anymore
-rm(tourney_slots)
-rm(tourney_seeds_round_slots)
-rm(tourney_games)
 
 
 # join with regular season data based on losing team id and the season
@@ -582,6 +587,7 @@ reg_detailed_result <- reg_detailed_result %>% mutate(
 Add conferences
 ```{r}
 # team conferences to tourney results
+team_conferences <- read.csv("TeamConferences.csv")
 team_conferences <- team_conferences %>% rename(WTeamID = TeamID)
 
 # join with conferences
@@ -690,9 +696,9 @@ reg_detailed_result %<>% mutate(Season = factor(Season),
                                     NumOT = factor(NumOT))
 
 
-reg_detailed_result <- reg_detailed_result %>% mutate(HTeamConfFactor = fct_lump(HTConf, 10))
+reg_detailed_result <- reg_detailed_result %>% mutate(HigherTeamConfFactor = fct_lump(HTConf, 10))
 
-reg_detailed_result <- reg_detailed_result %>% mutate(LTeamConfFactor = 
+reg_detailed_result <- reg_detailed_result %>% mutate(LowerTeamConfFactor = 
                                                                 fct_lump(LTConf, 10))
 
 ```
@@ -737,13 +743,159 @@ averages <- reg_detailed_result %>%
             DBlkReg = mean(DBlk, na.rm = TRUE),
             DPFAReg = mean(DPF, na.rm = TRUE))
 
+
 ```
 
 
 Combine with tourney detailed result
 ```{r}
+tourney_d_result <- left_join(x = tourney_d_result,
+                                     y = averages, 
+                                     by = "higher_team", "Season")
+
+# remove duplicates caused by join
+tourney_d_result <- tourney_d_result[!duplicated(tourney_d_result[1:10]),]
 
 
+tourney_model_df <- tourney_d_result %>% select(
+  higher_team, lower_team, higher_team_won, HigherTeamConfFactor,
+  LowerTeamConfFactor, DFTMReg, DStlReg, DFGAReg, DFGA3Reg, DFGMReg,
+  DStlReg, DFGAReg, DFGA3Reg, DFGM3Reg, DFTAReg, DORReg, DDRReg,
+  DTOReg, DAstReg, DBlkReg, DPFAReg, AvgSeedDiff, Season.y, DayNum
+)
+
+tourney_model_df <- tourney_model_df %>% rename(
+  DFTM = DFTMReg,
+  DStl = DStlReg,
+  DFGA = DFGAReg,
+  DFGA3 = DFGA3Reg,
+  DFGM3 = DFGM3Reg,
+  DFGM = DFGMReg,
+  DFTA = DFTAReg,
+  DOR = DORReg,
+  DDR = DDRReg,
+  DTO = DTOReg,
+  DAst = DAstReg,
+  DBlk = DBlkReg,
+  DPF = DPFAReg,
+  Season = Season.y
+)
+
+reg_model_df <- reg_detailed_result %>% select(
+  higher_team, lower_team, higher_team_won, HigherTeamConfFactor,
+  LowerTeamConfFactor, DFTM, DStl, DFGA, DFGA3, DFGM3, DFGM, DFTA,
+  DOR, DDR, DTO, DAst, DBlk, DPF, Season, DayNum, AvgSeedDiff
+)
+
+
+```
+
+
+Some initial summary statistics
+```{r}
+# get original data frame to help with some of the summary stats
+tourney_result_unmodified <- tourney_detailed_result
+
+# wins per team
+wins_per_team <- tourney_result_unmodified %>% group_by(WTeamID) %>% summarize(num_wins = n()) %>% arrange(desc(num_wins))
+wins_per_team
+wins_per_team %<>% rename(higher_team = WTeamID)
+wins_per_team <- left_join(x = wins_per_team,
+                           y = teams,
+                           by = "higher_team")
+wins_per_team <- wins_per_team %>% rename(WTeamID = higher_team) %>% select(WTeamID, TeamName, num_wins) %>% arrange(desc(num_wins))
+head(wins_per_team)
+
+# winning summary 
+winning_pts_summary <- tourney_result_unmodified %>% summarize(min_fg_made = min(WFGM),
+                                                               mean_fg_made = mean(WFGM),
+                                                               max_fg_made = max(WFGM),
+                                                               sd_fg_made = sd(WFGM),
+                                                               min_3pts_made = min(WFGM3),
+                                                               mean_3pts_made = mean(WFGM3),
+                                                               max_3pts_made = max(WFGM3),
+                                                               sd_3pts_made = sd(WFGM3)
+                                                               )
+winning_pts_summary
+
+# mean winner points summary
+mean_pts_summary <- tourney_result_unmodified %>% summarize(win_mean_fg_made = mean(WFGM),
+                                                            win_mean_3pts_made = mean(WFGM3),
+                                                            lose_mean_fg_made = mean(LFGM),
+                                                            lose_mean_3pts_made = mean(LFGM3)
+                                                            )
+mean_pts_summary
+
+# season summary - not sure how this DF was altered for winner
+# season <- tourney_detailed_result1 %>% group_by(Season) %>% group_by(winner) %>% summarize(mean(HTScore))
+# season
+
+# summary of Scores and Points
+summary_scores_points <- tourney_d_result %>%
+  select(HTScore, LTScore, HTFGM, HTFGA, LTFGM, LTFGA, HTFGM3, HTFGA3, LTFGM3, LTFGA3) 
+summary(summary_scores_points)
+
+# summary details of score by HTSeed
+HTSeed_details <- tourney_d_result %>% group_by(HTSeed) %>%
+  summarize(avg_points_HTSeed = mean(HTScore),
+            max_points_HTSeed = max(HTScore),
+            min_points_HTSeed = min(HTScore))
+HTSeed_details
+
+# summary details of score by LTSeed
+LTSeed_details <- tourney_d_result %>% group_by(LTSeed) %>%
+  summarize(avg_points_LTSeed = mean(LTScore),
+            max_points_LTSeed = max(LTScore),
+            min_points_LTSeed = min(LTScore))
+LTSeed_details
+
+```
+
+Let's look at a few plots that might start to reveal some interesting patterns
+```{r}
+# top ten conferences frequency of wins
+p4 <- ggplot(tourney_d_result, aes(x=WTeamConfFactor)) +
+  geom_bar() +
+  labs(x = "Conference",
+       title = "Frequency of Wins By Conference")
+
+p4
+
+# field goals made vs score difference
+p1 <- ggplot(
+  tourney_d_result,
+  aes(x = WFGM, y = scoreDiff)) + 
+  geom_point() +
+  labs(x = "Field Goals Made",
+       y = "Score Difference",
+       title = "Score difference and field goals made") +
+  theme_economist()
+p1
+
+# density plot by conference
+library(ggridges)
+p2 <- ggplot(tourney_d_result, aes(x = scoreDiff, y = WTeamConfFactor, fill = WTeamConfFactor)) +
+  geom_density_ridges() + 
+  labs(x = "Score Difference",
+       y = "Winning Team Conference")
+
+p2
+
+# scatter plot of winning scores and conferences
+p3 <- ggplot(tourney_d_result, aes(x = WScore, y = WTeamConfFactor)) +
+  geom_point() + 
+  labs(x = "Winning Score",
+       y = "Winning Team Conference")
+  
+p3
+
+# correlation plot of a variety of game stats - used as averages later on
+library(corrplot)
+cormat <- cor(tourney_d_result %>% select(LScore, WScore,
+                                                    WFGA, LFGA,
+                                                 WAst, LAst, WFTM, LFTM, 
+                                                    WFGM, LFGM) %>% drop_na())
+corrplot(cormat, method = "number", type="lower")
 ```
 
 
@@ -751,20 +903,32 @@ Combine with views and ratings data
 ```{r}
 # factor the season
 rating_round_viewers <- rating_round_viewers %>% mutate(Season = factor(Season))
+View(rating_round_viewers)
 tourney_semi_views_ratings <- tourney_semi_views_ratings %>% mutate(
   Season = factor(Season)
 )
 
 # join the ratings with the tourney detailed result
-tourney_finals_views_ratings <-left_join(x = tourney_d_result,
+tourney_d_result <- tourney_d_result %>% mutate(Season.x = as.numeric(as.character(Season.x)))
+rating_round_viewers <- rating_round_viewers %>% mutate(Season = as.numeric(as.character(Season)))
+tourney_d_result <- tourney_d_result %>% rename(Season = Season.x)
+
+tourney_d_result <- tourney_d_result %>% select(Round, DayNum, everything())
+
+tourney_finals_views_ratings <- left_join(x = tourney_d_result,
                                     y = rating_round_viewers,
                                     by = c("Season", "Round"))
+
+
 
 tourney_semi_views_ratings <- tourney_semi_views_ratings %>% rename(WTeamID = TeamID1)
 tourney_semi_views_ratings <- tourney_semi_views_ratings %>% rename(LTeamID = TeamID2)
 
+tourney_semi_views_ratings <- tourney_semi_views_ratings %>% mutate(Season = 
+                                                                as.numeric(as.character(Season)))
+
 # data frame with the semi final ratings and viewers
-tourney_semi_views_ratings <- left_join(x = tourney_detailed_result,
+tourney_semi_views_ratings <- left_join(x = tourney_d_result,
                                         y = tourney_semi_views_ratings,
                                         by= c("Season", "WTeamID", "LTeamID"))
 
@@ -782,7 +946,13 @@ tourney_views_ratings <- tourney_views_ratings %>% mutate(
   Network = factor(Network)
 )
 
+tourney_views_ratings <- tourney_views_ratings %>% select(Viewers, Rating, Network, Round,
+                                                          everything())
+
+tourney_views_ratings <- na.omit(tourney_views_ratings)
+
 ```
+
 
 Add some variables that might be interesting to analyze in relation to the views and ratings
 ```{r}
@@ -800,9 +970,245 @@ tourney_views_ratings <- tourney_views_ratings %>% mutate(
   TotalFieldGoalsAttempts = WFGA + LFGA,
   TotalPointsScored = WScore + LScore
 )
+```
+
+Baseline model based only on seed
+```{r}
+preds_seed_df <- data.frame(
+  tourney_d_result
+)
+
+preds_seed_df <- preds_seed_df %>% mutate(
+  class_pred = ifelse(DefaultTest == 1, "Yes", "No")
+)
+
+table(preds_seed_df$class_pred, preds_seed_df$higher_team_won)
+
+```
+
+
+Logistic Regression. First we'll run logistic regression with just historical tournament data based on the NCAA pre-bracket seed difference between the two teams, the average ranking difference at the end of the regular season based on the average of 7 different ranking systems, and the factored conference for each team.
+```{r}
+# logistic fit with a lot less data
+tourney_d_result <- na.omit(tourney_d_result)
+
+# Split into test and train
+set.seed(1861)
+(num_rows <- nrow(tourney_d_result))
+train_idx <- sample(1:num_rows, floor(.8 * num_rows))
+
+tourney_d_train <- tourney_d_result %>% slice(train_idx)
+tourney_d_test <- tourney_d_result %>% slice(-train_idx)
+
+glm_fit <- glm(higher_team_won ~ SeedDifference + AvgSeedDiff + HigherTeamConfFactor + 
+                 LowerTeamConfFactor,
+               data = tourney_d_train,
+               family = binomial)
+
+summary(glm_fit)
+
+preds_test_DF <- data.frame(
+  scores_logit = predict(glm_fit, type = "response", newdata = tourney_d_test),
+  tourney_d_test
+)
+
+preds_train_DF <- data.frame(
+  scores_logit = predict(glm_fit, type = "response", newdata = tourney_d_train),
+  tourney_d_train
+)
+
+preds_test_DF <- preds_test_DF %>% mutate(
+  class_pred05 = ifelse(scores_logit > .5, "Yes", "No")
+)
+
+preds_test_DF <- preds_test_DF %>% mutate(
+  class_pred05 = ifelse(scores_logit > .5, "Yes", "No")
+)
+
+table(preds_test_DF$class_pred05, preds_test_DF$higher_team_won)
 
 
 ```
+
+
+Next we will still only use the historical tournament data to train, but we will attempt to add in the average in game statistics from the regular season. Adding these in will add a lot of noise, so it will be interesting to see how the model performs with these attributes added. Then try and use historical tournament data and leave out a couple seasons to test on.
+```{r}
+tourney_d_2017 <- subset(tourney_d_result, Season == 2017)
+tourney_d_2017_train <- subset(tourney_d_result, as.numeric(Season) < 2017)
+tourney_d_2016 <- subset(tourney_d_result, Season == 2016)
+tourney_d_2016_train <- subset(tourney_d_result, as.numeric(Season) < 2016)
+
+glm_fit <- glm(higher_team_won ~ SeedDifference + AvgSeedDiff + HigherTeamConfFactor + 
+                 LowerTeamConfFactor + DFTMReg + DStlReg + DFGAReg + DFGA3Reg + DFGM3Reg + DFTAReg + DORReg + DDRReg
+              + DORReg + DTOReg + DAstReg + DBlkReg,
+               data = tourney_d_train,
+               family = binomial)
+
+summary(glm_fit)
+
+preds_test_DF <- data.frame(
+  scores_logit = predict(glm_fit, type = "response", newdata = tourney_d_test),
+  tourney_d_test
+)
+
+preds_2017_DF <- data.frame(
+  scores_logit = predict(glm_fit, type = "response", newdata = tourney_d_2017),
+  tourney_d_2017
+)
+
+preds_test_DF <- preds_test_DF %>% mutate(
+  class_pred05 = ifelse(scores_logit > .5, "Yes", "No")
+)
+
+preds_test_2017 <- preds_2017_DF %>% mutate(
+  class_pred05 = ifelse(scores_logit > .5, "Yes", "No")
+)
+
+table(preds_test_DF$class_pred05, preds_test_DF$higher_team_won)
+table(preds_test_2017$class_pred05, preds_test_2017$higher_team_won)
+
+```
+
+
+Elastic Net To Look for the Optimal Alpha
+```{r}
+alpha_list <- seq(0,1,len = 5)
+
+enet_fit <- cva.glmnet(higher_team_won ~ SeedDifference + AvgSeedDiff + HigherTeamConfFactor + 
+                 LowerTeamConfFactor + DFTMReg + DStlReg + DFGAReg + DFGA3Reg + DFGM3Reg + DFTAReg + DORReg + DDRReg
+              + DORReg + DTOReg + DAstReg + DBlkReg,
+                       data = tourney_d_train,
+                       alpha = alpha_list)
+
+minlossplot(enet_fit)
+
+```
+
+
+Run at the optimal alpha
+```{r}
+# alpha = 1 for lasso which appears to minimize CV Loss
+lasso_fit <- cv.glmnet(higher_team_won ~ SeedDifference + AvgSeedDiff + HigherTeamConfFactor + 
+                 LowerTeamConfFactor + DFTMReg + DStlReg + DFGAReg + DFGA3Reg + DFGM3Reg + DFTAReg + DORReg + DDRReg
+              + DORReg + DTOReg + DAstReg + DBlkReg,
+          data = tourney_d_train,
+          family = "binomial",
+          alpha = 1,
+          nfolds = 10)
+
+lasso_preds <- predict(lasso_fit, newdata = tourney_d_test, s = lasso_fit$lambda.min)
+lasso_preds_2017 <- predict(lasso_fit, newdata = tourney_d_2017, s = lasso_fit$lambda.min)
+
+preds_test_lasso <- data.frame(
+  tourney_d_test,
+  lasso_preds
+)
+
+preds_2017_lasso <- data.frame(
+  tourney_d_2017,
+  lasso_preds_2017
+)
+
+preds_test_lasso <- preds_test_lasso %>% mutate(
+  class_pred05 = ifelse(lasso_preds > .5, "Yes", "No")
+)
+
+preds_2017_lasso <- preds_2017_lasso %>% mutate(
+  class_pred05 = ifelse(lasso_preds_2017 > .05, "Yes", "No")
+)
+
+
+table(preds_test_lasso$class_pred05, preds_test_lasso$higher_team_won)
+table(preds_2017_lasso$class_pred05, preds_2017_lasso$higher_team_won)
+
+# how are these probabilities not scaled to 1?
+(roc_test <- ggplot(preds_2017_lasso, aes(m = lasso_preds_2017,
+                                      d = higher_team_won)) + 
+  geom_roc(cutoffs.at = c(.99, .9, .75, .5, .25, .1, .01)))
+
+
+```
+
+
+Random Forest
+```{r}
+rf_fit <- randomForest(as.factor(higher_team_won) ~ SeedDifference + AvgSeedDiff + HigherTeamConfFactor + 
+                 LowerTeamConfFactor,
+                       data = tourney_d_train,
+                       type = classification, 
+                       mrty = 3,
+                       ntree = 400,
+                       importance = TRUE,
+                       localImp = TRUE)
+
+rf_fit
+
+plot(rf_fit, ylim = c(0, 1))
+
+# THIS LINE IS JUST COMMENTED OUT BECAUSE IT CAUSES ISSUES WITH KNITTING
+#explain_forest(rf_fit, interactions = TRUE, data = tourney_d_train)
+
+preds_test_DF <- data.frame(
+  scores_logit = predict(rf_fit, type = "prob", newdata = tourney_d_test),
+  tourney_d_test
+)
+
+View(preds_test_DF)
+
+preds_test_DF <- preds_test_DF %>% mutate(
+  class_pred05 = ifelse(scores_logit.1 > .5, "Yes", "No")
+)
+
+table(preds_test_DF$class_pred05, preds_test_DF$higher_team_won)
+
+View(preds_test_DF)
+
+potential_upsets <- preds_test_DF %>% filter(between(preds_test_DF$scores_logit.1, .4, .6))
+
+View(potential_upsets)
+
+View(teams)
+```
+
+
+TV Viewership Linear Regression
+```{r}
+
+##### Will need to do cross validation here since there isn't a ton of data ########
+
+names(tourney_views_ratings)
+
+lin_mod1 <- lm(Viewers ~ IsUpset + SeedDifference + TotalThreesMade + TotalPointsScored,
+               data = tourney_views_ratings)
+
+summary(lin_mod1)
+
+tourney_views_ratings <- tourney_views_ratings %>% mutate(
+  scoreDiff = WScore - LScore
+)
+
+# score difference and round are significant, ACC games are relevant
+lin_mod2 <- lm(Viewers ~ relevel(WTeamConfFactor, ref="Other") + scoreDiff + IsUpset + WTeamSeed +
+                 relevel(LTeamConfFactor, ref="Other"),
+               data = tourney_views_ratings)
+
+summary(lin_mod2)
+
+preds_train_DF <- data.frame(
+  preds = predict(lin_mod2),
+  resids = tourney_views_ratings$Viewers - predict(lin_mod2),
+  tourney_views_ratings
+)
+
+# Check for Heteroschedasticity
+(ggplot(preds_train_DF, aes(x = resids, y = preds)) + 
+  geom_point())
+
+```
+
+
+Conclusion:
+
 
 
 

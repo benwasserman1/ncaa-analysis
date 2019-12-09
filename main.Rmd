@@ -496,6 +496,9 @@ regular_detailed_result <-left_join(x = regular_detailed_result,
                                     by = c("Season", "WTeamID"))
 
 
+View(regular_detailed_result)
+
+
 
 # add losing teams rankings
 bih_rankings <- bih_rankings %>% rename(LTeamID = WTeamID,
@@ -1159,6 +1162,7 @@ table(preds_test_DF$class_pred05, preds_test_DF$higher_team_won)
 
 
 ```
+
 ```{r}
 (roc_test <- ggplot(preds_test_DF, aes(m = scores_logit,
                                       d = higher_team_won)) + 
