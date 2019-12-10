@@ -21,7 +21,7 @@ library(randomForestExplainer)
 ```
 
 
-## Table of Contents
+## Document Overview
 
 ### Document Prep and File Read In
 
@@ -44,7 +44,7 @@ library(randomForestExplainer)
   
 ### Add Viewers and Ratings
 
-### Summary Statistics and EDA (This will have graphics too)
+### Summary Statistics and EDA
 
 ### Logistic Regression
   
@@ -54,7 +54,7 @@ library(randomForestExplainer)
   
 ### Elastic Net
 
-### Ridge Model
+### Lasso Model
 
 ### Random Forest Model
 
@@ -903,7 +903,6 @@ Combine with views and ratings data
 ```{r}
 # factor the season
 rating_round_viewers <- rating_round_viewers %>% mutate(Season = factor(Season))
-View(rating_round_viewers)
 tourney_semi_views_ratings <- tourney_semi_views_ratings %>% mutate(
   Season = factor(Season)
 )
@@ -986,7 +985,6 @@ table(preds_seed_df$class_pred, preds_seed_df$higher_team_won)
 
 ```
 
-
 Logistic Regression. First we'll run logistic regression with just historical tournament data based on the NCAA pre-bracket seed difference between the two teams, the average ranking difference at the end of the regular season based on the average of 7 different ranking systems, and the factored conference for each team.
 ```{r}
 # logistic fit with a lot less data
@@ -999,10 +997,24 @@ train_idx <- sample(1:num_rows, floor(.8 * num_rows))
 
 tourney_d_train <- tourney_d_result %>% slice(train_idx)
 tourney_d_test <- tourney_d_result %>% slice(-train_idx)
+tourney_d_2017 <- subset(tourney_d_result, Season.x == 2017)
+tourney_d_2017_train <- subset(tourney_d_result, as.numeric(Season.x) < 2017)
+tourney_d_2016 <- subset(tourney_d_result, Season.x == 2016)
+tourney_d_2016_train <- subset(tourney_d_result, as.numeric(Season.x) < 2016)
 
 glm_fit <- glm(higher_team_won ~ SeedDifference + AvgSeedDiff + HigherTeamConfFactor + 
                  LowerTeamConfFactor,
                data = tourney_d_train,
+               family = binomial)
+
+glm_fit_2017 <- glm(higher_team_won ~ SeedDifference + AvgSeedDiff + HigherTeamConfFactor + 
+                 LowerTeamConfFactor,
+               data = tourney_d_2017_train,
+               family = binomial)
+
+glm_fit_2016 <- glm(higher_team_won ~ SeedDifference + AvgSeedDiff + HigherTeamConfFactor + 
+                 LowerTeamConfFactor,
+               data = tourney_d_2016_train,
                family = binomial)
 
 summary(glm_fit)
@@ -1010,6 +1022,16 @@ summary(glm_fit)
 preds_test_DF <- data.frame(
   scores_logit = predict(glm_fit, type = "response", newdata = tourney_d_test),
   tourney_d_test
+)
+
+preds_2016_test_DF <- data.frame(
+  scores_logit = predict(glm_fit_2016, type="response", newdata = tourney_d_2016),
+  tourney_d_2016
+)
+
+preds_2017_test_DF <- data.frame(
+  scores_logit = predict(glm_fit_2017, type="response", newdata = tourney_d_2017),
+  tourney_d_2017
 )
 
 preds_train_DF <- data.frame(
@@ -1025,6 +1047,16 @@ preds_test_DF <- preds_test_DF %>% mutate(
   class_pred05 = ifelse(scores_logit > .5, "Yes", "No")
 )
 
+preds_2017_test_DF <- preds_2017_test_DF %>% mutate(
+  class_pred05 = ifelse(scores_logit > .5, "Yes", "No")
+)
+
+preds_2016_test_DF <- preds_2016_test_DF %>% mutate(
+  class_pred05 = ifelse(scores_logit > .5, "Yes", "No")
+)
+
+table(preds_2016_test_DF$class_pred05, preds_2016_test_DF$higher_team_won)
+table(preds_2017_test_DF$class_pred05, preds_2017_test_DF$higher_team_won)
 table(preds_test_DF$class_pred05, preds_test_DF$higher_team_won)
 
 
@@ -1033,39 +1065,48 @@ table(preds_test_DF$class_pred05, preds_test_DF$higher_team_won)
 
 Next we will still only use the historical tournament data to train, but we will attempt to add in the average in game statistics from the regular season. Adding these in will add a lot of noise, so it will be interesting to see how the model performs with these attributes added. Then try and use historical tournament data and leave out a couple seasons to test on.
 ```{r}
-tourney_d_2017 <- subset(tourney_d_result, Season == 2017)
-tourney_d_2017_train <- subset(tourney_d_result, as.numeric(Season) < 2017)
-tourney_d_2016 <- subset(tourney_d_result, Season == 2016)
-tourney_d_2016_train <- subset(tourney_d_result, as.numeric(Season) < 2016)
+dim(tourney_d_2016)
+dim(tourney_d_2016_train)
 
-glm_fit <- glm(higher_team_won ~ SeedDifference + AvgSeedDiff + HigherTeamConfFactor + 
+glm_fit1 <- glm(higher_team_won ~ SeedDifference + AvgSeedDiff + HigherTeamConfFactor + 
                  LowerTeamConfFactor + DFTMReg + DStlReg + DFGAReg + DFGA3Reg + DFGM3Reg + DFTAReg + DORReg + DDRReg
               + DORReg + DTOReg + DAstReg + DBlkReg,
-               data = tourney_d_train,
+               data = tourney_d_2017_train,
                family = binomial)
 
-summary(glm_fit)
+glm_fit2 <- glm(higher_team_won ~ SeedDifference + AvgSeedDiff + HigherTeamConfFactor + 
+                 LowerTeamConfFactor + DFTMReg + DStlReg + DFGAReg + DFGA3Reg + DFGM3Reg + DFTAReg + DORReg + DDRReg
+              + DORReg + DTOReg + DAstReg + DBlkReg,
+               data = tourney_d_2016_train,
+               family = binomial)
 
-preds_test_DF <- data.frame(
-  scores_logit = predict(glm_fit, type = "response", newdata = tourney_d_test),
-  tourney_d_test
+summary(glm_fit1)
+summary(glm_fit2)
+
+preds_2016_DF <- data.frame(
+  scores_logit = predict(glm_fit2, type = "response", newdata = tourney_d_2016),
+  tourney_d_2016
 )
 
 preds_2017_DF <- data.frame(
-  scores_logit = predict(glm_fit, type = "response", newdata = tourney_d_2017),
+  scores_logit = predict(glm_fit1, type = "response", newdata = tourney_d_2017),
   tourney_d_2017
 )
 
-preds_test_DF <- preds_test_DF %>% mutate(
-  class_pred05 = ifelse(scores_logit > .5, "Yes", "No")
+preds_test_2016 <- preds_2016_DF %>% mutate(
+  class_pred05 = ifelse(scores_logit > .35, "Yes", "No")
 )
 
 preds_test_2017 <- preds_2017_DF %>% mutate(
-  class_pred05 = ifelse(scores_logit > .5, "Yes", "No")
+  class_pred05 = ifelse(scores_logit > .35, "Yes", "No")
 )
 
-table(preds_test_DF$class_pred05, preds_test_DF$higher_team_won)
+table(preds_test_2016$class_pred05, preds_test_2016$higher_team_won)
 table(preds_test_2017$class_pred05, preds_test_2017$higher_team_won)
+
+(roc_test <- ggplot(preds_test_2017, aes(m = scores_logit,
+                                      d = higher_team_won)) + 
+  geom_roc(cutoffs.at = c(.99, .9, .75, .5, .25, .1, .01)))
 
 ```
 
@@ -1096,32 +1137,23 @@ lasso_fit <- cv.glmnet(higher_team_won ~ SeedDifference + AvgSeedDiff + HigherTe
           alpha = 1,
           nfolds = 10)
 
-lasso_preds <- predict(lasso_fit, newdata = tourney_d_test, s = lasso_fit$lambda.min)
-lasso_preds_2017 <- predict(lasso_fit, newdata = tourney_d_2017, s = lasso_fit$lambda.min)
+lasso_preds <- predict(lasso_fit, type="response", newdata = tourney_d_test, s = lasso_fit$lambda.min)
+
 
 preds_test_lasso <- data.frame(
   tourney_d_test,
   lasso_preds
 )
 
-preds_2017_lasso <- data.frame(
-  tourney_d_2017,
-  lasso_preds_2017
-)
 
 preds_test_lasso <- preds_test_lasso %>% mutate(
   class_pred05 = ifelse(lasso_preds > .5, "Yes", "No")
 )
 
-preds_2017_lasso <- preds_2017_lasso %>% mutate(
-  class_pred05 = ifelse(lasso_preds_2017 > .05, "Yes", "No")
-)
-
 
 table(preds_test_lasso$class_pred05, preds_test_lasso$higher_team_won)
-table(preds_2017_lasso$class_pred05, preds_2017_lasso$higher_team_won)
 
-# how are these probabilities not scaled to 1?
+
 (roc_test <- ggplot(preds_2017_lasso, aes(m = lasso_preds_2017,
                                       d = higher_team_won)) + 
   geom_roc(cutoffs.at = c(.99, .9, .75, .5, .25, .1, .01)))
@@ -1134,8 +1166,18 @@ Random Forest
 ```{r}
 rf_fit <- randomForest(as.factor(higher_team_won) ~ SeedDifference + AvgSeedDiff + HigherTeamConfFactor + 
                  LowerTeamConfFactor,
-                       data = tourney_d_train,
+                       data = tourney_d_2017_train,
                        type = classification, 
+                       mrty = 3,
+                       ntree = 400,
+                       importance = TRUE,
+                       localImp = TRUE)
+
+rf_fit2 <- randomForest(as.factor(higher_team_won) ~ SeedDifference + AvgSeedDiff + HigherTeamConfFactor + 
+                 LowerTeamConfFactor + DFTMReg + DStlReg + DFGAReg + DFGA3Reg + DFGM3Reg + DFTAReg + DORReg + DDRReg
+              + DORReg + DTOReg + DAstReg + DBlkReg,
+          data = tourney_d_train,
+          type = classification, 
                        mrty = 3,
                        ntree = 400,
                        importance = TRUE,
@@ -1146,20 +1188,30 @@ rf_fit
 plot(rf_fit, ylim = c(0, 1))
 
 # THIS LINE IS JUST COMMENTED OUT BECAUSE IT CAUSES ISSUES WITH KNITTING
-#explain_forest(rf_fit, interactions = TRUE, data = tourney_d_train)
+# explain_forest(rf_fit2, interactions = TRUE, data = tourney_d_train)
 
 preds_test_DF <- data.frame(
-  scores_logit = predict(rf_fit, type = "prob", newdata = tourney_d_test),
-  tourney_d_test
+  scores_logit = predict(rf_fit, type = "prob", newdata = tourney_d_2017),
+  tourney_d_2017
+)
+
+preds_test_2017 <- data.frame(
+  scores_logit = predict(rf_fit2, type = "prob", newdata = tourney_d_2017),
+  tourney_d_2017
 )
 
 View(preds_test_DF)
 
-preds_test_DF <- preds_test_DF %>% mutate(
+preds_test_2017 <- preds_test_2017 %>% mutate(
+  class_pred05 = ifelse(scores_logit.1 > .5, "Yes", "No")
+)
+
+preds_test_2017 <- preds_test_2017 %>% mutate(
   class_pred05 = ifelse(scores_logit.1 > .5, "Yes", "No")
 )
 
 table(preds_test_DF$class_pred05, preds_test_DF$higher_team_won)
+table(preds_test_2017$class_pred05, preds_test_2017$higher_team_won)
 
 View(preds_test_DF)
 
@@ -1173,11 +1225,6 @@ View(teams)
 
 TV Viewership Linear Regression
 ```{r}
-
-##### Will need to do cross validation here since there isn't a ton of data ########
-
-names(tourney_views_ratings)
-
 lin_mod1 <- lm(Viewers ~ IsUpset + SeedDifference + TotalThreesMade + TotalPointsScored,
                data = tourney_views_ratings)
 
@@ -1188,11 +1235,15 @@ tourney_views_ratings <- tourney_views_ratings %>% mutate(
 )
 
 # score difference and round are significant, ACC games are relevant
-lin_mod2 <- lm(Viewers ~ relevel(WTeamConfFactor, ref="Other") + scoreDiff + IsUpset + WTeamSeed +
-                 relevel(LTeamConfFactor, ref="Other"),
+lin_mod2 <- lm(Viewers ~ relevel(WTeamConfFactor, ref="Other") + scoreDiff + IsUpset + WTeamSeed,
                data = tourney_views_ratings)
 
 summary(lin_mod2)
+
+lin_mod3 <- lm(Viewers ~ relevel(WTeamConfFactor, ref="Other") + IsUpset + scoreDiff,
+               data = tourney_views_ratings)
+
+summary(lin_mod3)
 
 preds_train_DF <- data.frame(
   preds = predict(lin_mod2),
@@ -1205,6 +1256,8 @@ preds_train_DF <- data.frame(
   geom_point())
 
 ```
+
+Although there isn't much data, we have performed leave one out cross validation to make sure that our data is training on as much data as possible. We also were able to confirm that the data is homoschedastic so it does appear to fit a linear pattern. That said, we can't extrapolate about these results too much considering the limited quantity of data in comparison to the number of attributes we are analyzing.
 
 
 Conclusion:
